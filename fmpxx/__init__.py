@@ -1,2 +1,1 @@
-from client import FMPClient
-
+from .client import FMPClient

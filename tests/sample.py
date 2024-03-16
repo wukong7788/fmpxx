@@ -1,4 +1,4 @@
-from fmpx.client import FMPClient
+from fmpxx.client import FMPClient
 from dotenv import load_dotenv, find_dotenv
 import os
 

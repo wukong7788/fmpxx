@@ -2,11 +2,12 @@ import requests
 import pandas as pd
 from datetime import datetime
 import datetime as dtt
-from typing import Dict
 from dotenv import load_dotenv, find_dotenv
 from dateutil.relativedelta import relativedelta
 from retry import retry
 import numpy as np
+from typing import Dict, Any
+
 pd.set_option("expand_frame_repr", False)  # 当列太多时不换行
 pd.set_option("display.max_rows", 5000)  # 最多显示数据的行数
 
@@ -15,33 +16,33 @@ load_dotenv(find_dotenv())
 
 
 class FMPClient:
-    DEFAULT_HOST = "financialmodelingprep.com/api"
+    DEFAULT_HOST = "https://financialmodelingprep.com/api"
 
-    def __init__(self, api_key, timeout: int = None):
+    def __init__(self, api_key: str, timeout: int = 10):
         self.api_key = api_key
-        self.url = "https://" + self.DEFAULT_HOST
+        self.url = self.DEFAULT_HOST
         self._session = requests.Session()
         self.timeout = timeout
 
-    def _handle_response(self, endpoint: str, params: Dict[str, str]):
-        resp = self._session.get(endpoint, timeout=self.timeout,
-                                 params=params).json()
-        return resp
+    def _handle_response(self, endpoint: str, params: Dict[str, Any]) -> Any:
+        params['apikey'] = self.api_key  # 将API密钥作为参数传递
+        response = self._session.get(endpoint, params=params, timeout=self.timeout)
+        if response.status_code != 200:
+            response.raise_for_status()  # 如果响应状态码不是200，则抛出异常
+        return response.json()
 
     @staticmethod
-    def trans_to_df(res):
-        df = pd.DataFrame(res)
-        return df
+    def trans_to_df(res: Dict[str, Any]) -> pd.DataFrame:
+        return pd.DataFrame(res)
 
-    def get_8k_update(self, endpoint="v4/rss_feed_8k", **query_params):
+    def get_8k_update(self, endpoint: str = "v4/rss_feed_8k", **query_params) -> pd.DataFrame:
         """
         返回8k报告update
         hasFinancial='true', limit=10
         """
-        endpoint = f"{self.url}/{endpoint}?apikey={self.api_key}"
-        res = self._handle_response(endpoint, query_params)
-        df: pd.DataFrame = self.trans_to_df(res)
-        return df
+        full_endpoint = f"{self.url}/{endpoint}"
+        res = self._handle_response(full_endpoint, query_params)
+        return self.trans_to_df(res)
 
     def get_sec_update(self, days):
         """
@@ -56,7 +57,7 @@ class FMPClient:
         # type=10 include 10-K 10-Q
         endpoint = (f"https://financialmodelingprep.com/api/v4/rss_feed?"
                     f"type=10&from={start}&to={end}&isDone="
-                    f"true&apikey={self.api_key}")
+                    f"true")
         res = requests.get(endpoint).json()
         df = self.trans_to_df(res)
         return df
@@ -66,7 +67,7 @@ class FMPClient:
         7500
         和available的区别没有搞明白。。
         """
-        endpoint = f"{self.url}/{endpoint}?apikey={self.api_key}"
+        endpoint = f"{self.url}/{endpoint}"
         res = self._handle_response(endpoint, query_params)
         # print(res)
         df: pd.DataFrame = self.trans_to_df(res)
@@ -81,7 +82,7 @@ class FMPClient:
         """
         8300  包含etf etn 2x shares
         """
-        endpoint = f"{self.url}/{endpoint}?apikey={self.api_key}"
+        endpoint = f"{self.url}/{endpoint}"
         res = self._handle_response(endpoint, query_params)
         # print(res)
         df: pd.DataFrame = self.trans_to_df(res)
@@ -97,7 +98,7 @@ class FMPClient:
         """
         获取实时报价price
         """
-        endpoint = f"{self.url}/{endpoint}/{symbol}?apikey={self.api_key}"
+        endpoint = f"{self.url}/{endpoint}/{symbol}"
         res = self._handle_response(endpoint, query_params)
         # print(res)
         return res[0]["price"]
@@ -107,7 +108,7 @@ class FMPClient:
         获取实时报价df
         timestamp请求的是当时的时间戳，如果是盘后请求就会有问题，在real his里去重
         """
-        endpoint = f"{self.url}/{endpoint}/{symbol}?apikey={self.api_key}"
+        endpoint = f"{self.url}/{endpoint}/{symbol}"
         res = self._handle_response(endpoint, query_params)
         # print(res)
         df = pd.DataFrame.from_records(res)
@@ -182,7 +183,7 @@ class FMPClient:
             end = end.strftime("%Y-%m-%d")
             start = start.strftime("%Y-%m-%d")
         endpoint = (f"{self.url}/{endpoint}/{symbol}?from={start}"
-                    f"&to={end}&apikey={self.api_key}")
+                    f"&to={end}")
         res = self._handle_response(endpoint, query_params)
         try:
             df = pd.DataFrame.from_records(res["historical"])
@@ -227,7 +228,7 @@ class FMPClient:
             endpoint = "v3/balance-sheet-statement"
         if statement == "cash":
             endpoint = "v3/cash-flow-statement"
-        endpoint = f"{self.url}/{endpoint}/{symbol}?apikey={self.api_key}"
+        endpoint = f"{self.url}/{endpoint}/{symbol}"
         res = self._handle_response(endpoint, query_params)
         # print(res)
         df = pd.DataFrame.from_records(res)
@@ -355,7 +356,7 @@ class FMPClient:
         """
         获得当前sp500构成
         """
-        endpoint = f"{self.url}/{endpoint}?apikey={self.api_key}"
+        endpoint = f"{self.url}/{endpoint}"
         resp = self._handle_response(endpoint, query_params)
         # print(resp)
         sp500_lst = [i["symbol"] for i in resp]
@@ -368,7 +369,7 @@ class FMPClient:
         """
         获得历史和现在的sp500
         """
-        endpoint = f"{self.url}/{endpoint}?apikey={self.api_key}"
+        endpoint = f"{self.url}/{endpoint}"
         resp = self._handle_response(endpoint, query_params)
         df = pd.DataFrame.from_records(resp)
         df["date"] = pd.to_datetime(df["date"])
