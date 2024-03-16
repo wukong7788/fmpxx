@@ -1,13 +1,15 @@
 from fmpxx.client import FMPClient
+from fmpxx.company_info import CompanyInfo
+from fmpxx.quote import Quote
 from dotenv import load_dotenv, find_dotenv
 import os
 
 load_dotenv(find_dotenv())
 API_Key = os.getenv("FMP_KEY")
 
-client = FMPClient(api_key=API_Key)
-
-print(client.get_real_his_fmp("AAPL", period=1))
+# client = FMPClient(api_key=API_Key)
+#
+# print(client.get_real_his_fmp("AAPL", period=1))
 # print(fmp.get_8k_update(hasFinancial='true', limit=20))
 # print(fmp.get_his_fmp('AAPL', period=1))
 # print(fmp.get_quote_short('AAPL'))
@@ -16,3 +18,13 @@ print(client.get_real_his_fmp("AAPL", period=1))
 # print(fmp.get_tickers())
 # print(fmp.get_available_tickers())
 # print(fmp.get_sec_update(3)['ticker'].tolist())
+
+
+# get estimated eps/revenue
+# company_info_client = CompanyInfo(API_Key)
+# aapl_analyst_estimates = company_info_client.get_analyst_estimates("AAPL")
+# print(aapl_analyst_estimates)
+
+# get quote
+quote_client = Quote(API_Key)
+print(quote_client.get_simple_quote('AAPL'))
