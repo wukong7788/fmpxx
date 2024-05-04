@@ -74,4 +74,4 @@ for symbol in ['META']:
     # 显示图表
     # plt.show()
 
-    plt.savefig(f'{symbol}.png', dpi=150)
+    plt.savefig(f'{symbol}.png', dpi=100)
