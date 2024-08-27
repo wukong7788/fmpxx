@@ -41,7 +41,7 @@ class Financials(FMPClient):
 
         eps_df['eps_ttm'] = eps_df['eps'].rolling(4).sum()
         # print(eps_df)
-        his_df = self.get_his_fmp(symbol)
+        his_df = self.get_his_fmp(symbol, period=10)
         merged_df = pd.DataFrame()
         # 使用 'date' 列作为键，进行内连接合并
         if pe == 'now':
@@ -54,11 +54,15 @@ class Financials(FMPClient):
         #fixme 暂时用现存的 eps 填充，也可以用 epsEstimated 填充
         merged_df['eps_ttm'] = merged_df['eps_ttm'].fillna(method='ffill')
         merged_df['est'].fillna(method='bfill', inplace=True)
+        # 合并后的四舍五入，避免 eps_ttm出现近似 0 的极小值，导致 pe 非常大
+        merged_df = merged_df.round(2)
         # 当 eps_ttm<=0时 pe 为 nan
-        merged_df['pe'] = merged_df.apply(lambda row: row['close'] / row['eps_ttm'] if row['eps_ttm'] > 0 else np.nan, axis=1)
+        merged_df['pe'] = merged_df.apply(lambda row: row['close'] / row['eps_ttm'] if row['eps_ttm'] > 0 else 0, axis=1)
+
         # print(merged_df)
         selected = merged_df[['date', 'eps_ttm', 'pe', 'close', 'eps', 'est']]
         selected = selected.dropna(subset=['close'])
+        # selected= selected.round(2)
         return selected
 
     def get_eps(self, symbol:str) -> pd.DataFrame:

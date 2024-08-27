@@ -8,6 +8,9 @@ import os
 from fmpxx.financials import Financials
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+pd.set_option('display.float_format', '{:.2f}'.format)
+# pd.options.display.float_format = '{:.0f}'.format
+
 
 load_dotenv(find_dotenv())
 API_Key = os.getenv("FMP_KEY")
@@ -40,7 +43,9 @@ client = Financials(API_Key)
 # # print(client.get_eps('ABT'))
 # print(client.get_earnings_his('TSM'))
 # for symbol in ['NVDA', 'TSLA', 'MSFT', 'AAPL', 'AMZN', 'GOOGL', 'META']:
-for symbol in ['META']:
+for symbol in ['NVDA', 'TSM', 'AVGO', 'MU', 'QCOM', 'AMD', 'ARM']:
+
+# for symbol in ['AVGO']:
 
     df = client.get_pe(symbol, pe='est')
     # 将'date'列设置为索引
@@ -74,4 +79,4 @@ for symbol in ['META']:
     # 显示图表
     # plt.show()
 
-    plt.savefig(f'{symbol}.png', dpi=100)
+    plt.savefig(f'0727{symbol}.png', dpi=100)
