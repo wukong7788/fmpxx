@@ -4,3 +4,4 @@ fmp_x.egg-info/
 __pycache__/
 .env
 /tests/*.png
+.venv/
