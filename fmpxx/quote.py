@@ -69,14 +69,3 @@ class Quote(FMPClient):
         return df
 
 
-if __name__ == "__main__":
-    api_key = os.getenv("FMP")
-    quote = Quote(api_key)
-    # print(quote.get_simple_quote("AAPL"))
-    # print(quote.get_full_quote("AAPL"))
-    
-    # 测试新添加的get_stock_history方法
-    history_df = quote.get_stock_history("NVDA", period=1)
-    if not history_df.empty:
-        print(history_df)
-        print(f"获取到 {len(history_df)} 条历史数据记录")

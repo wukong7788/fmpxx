@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fmpxx"
-version = "0.1.9.2"
+version = "0.2.1"
 description = ""
 authors = ["ron <wu.kong@foxmail.com>"]
 readme = "README.md"

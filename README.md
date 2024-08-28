@@ -1,4 +1,4 @@
-# 0.2.0
+# 0.2.1
 分成了quote, financials, util三个类
 
 # fmpxx
