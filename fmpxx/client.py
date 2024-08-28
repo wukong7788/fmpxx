@@ -21,19 +21,22 @@ class FMPClient:
     def __init__(self, api_key: str, timeout: int = 10):
         self.api_key = api_key
         self.url = self.DEFAULT_HOST
-        self._session = requests.Session()
         self.timeout = timeout
 
     def _handle_response(self, endpoint: str, params: Dict[str, Any]) -> Any:
-        params['apikey'] = self.api_key  # 将API密钥作为参数传递
-        response = self._session.get(endpoint, params=params, timeout=self.timeout)
-        if response.status_code != 200:
-            response.raise_for_status()  # 如果响应状态码不是200，则抛出异常
-        return response.json()
+        params['apikey'] = self.api_key
+        try:
+            with requests.Session() as session:
+                response = session.get(endpoint, params=params, timeout=self.timeout)
+                response.raise_for_status()
+                return response.json()
+        except requests.RequestException as e:
+            print(f"请求失败: {e}")
+            return None
 
     @staticmethod
     def trans_to_df(res: Dict[str, Any]) -> pd.DataFrame:
-        return pd.DataFrame(res)
+        return pd.DataFrame(res) if res else pd.DataFrame()
 
     def get_8k_update(self, endpoint: str = "v4/rss_feed_8k", **query_params) -> pd.DataFrame:
         """
@@ -62,34 +65,6 @@ class FMPClient:
         df = self.trans_to_df(res)
         return df
 
-    def get_tickers(self, endpoint="v3/stock/list", **query_params):
-        """
-        7500
-        和available的区别没有搞明白。。
-        """
-        endpoint = f"{self.url}/{endpoint}"
-        res = self._handle_response(endpoint, query_params)
-        # print(res)
-        df: pd.DataFrame = self.trans_to_df(res)
-        df = df[df["type"] == "stock"]
-        df = df.loc[df["exchangeShortName"].isin(["NASDAQ", "NYSE"])]
-        df.reset_index(inplace=True, drop=True)
-        return df
-
-    def get_available_tickers(self,
-                              endpoint="v3/available-traded/list",
-                              **query_params):
-        """
-        8300  包含etf etn 2x shares
-        """
-        endpoint = f"{self.url}/{endpoint}"
-        res = self._handle_response(endpoint, query_params)
-        # print(res)
-        df: pd.DataFrame = self.trans_to_df(res)
-        # df = df[df['type'] == 'stock']
-        df = df.loc[df["exchangeShortName"].isin(["NASDAQ", "NYSE"])]
-        df.reset_index(inplace=True, drop=True)
-        return df
 
     def get_quote_short(self,
                         symbol,
@@ -140,79 +115,79 @@ class FMPClient:
         # print(df)
         return df
 
-    def get_real_his_fmp(self, symbol, period):
-        """
-        获得包含实时数据的k线
-        解决了盘后请求多一天数据的问题
-        """
-        real_df = self.get_quote(symbol)  # fixme 周末读取的话时间是周末，但是应该对实盘没有影响
-        # print(real_df)
-        his_df = self.get_his_fmp(symbol, period=period)
-        # print(his_df)
-        # new_df = his_df.append(real_df, ignore_index=True)
-        new_df = pd.concat([his_df, real_df])
-        # 去重 排序
-        new_df.drop_duplicates(subset=["date"], inplace=True, keep="first")
-        # 解决盘后请求的问题，volume会被数据修正，使用OCHL
-        new_df.drop_duplicates(subset=["close", "open", "high", "low"],
-                               inplace=True,
-                               keep="first")
-        new_df.sort_values(by=["date"],
-                           ascending=True,
-                           inplace=True,
-                           ignore_index=True)
-        # print(new_df)
-        return new_df
+    # def get_real_his_fmp(self, symbol, period):
+    #     """
+    #     获得包含实时数据的k线
+    #     解决了盘后请求多一天数据的问题
+    #     """
+    #     real_df = self.get_quote(symbol)  # fixme 周末读取的话时间是周末，但是应该对实盘没有影响
+    #     # print(real_df)
+    #     his_df = self.get_his_fmp(symbol, period=period)
+    #     # print(his_df)
+    #     # new_df = his_df.append(real_df, ignore_index=True)
+    #     new_df = pd.concat([his_df, real_df])
+    #     # 去重 排序
+    #     new_df.drop_duplicates(subset=["date"], inplace=True, keep="first")
+    #     # 解决盘后请求的问题，volume会被数据修正，使用OCHL
+    #     new_df.drop_duplicates(subset=["close", "open", "high", "low"],
+    #                            inplace=True,
+    #                            keep="first")
+    #     new_df.sort_values(by=["date"],
+    #                        ascending=True,
+    #                        inplace=True,
+    #                        ignore_index=True)
+    #     # print(new_df)
+    #     return new_df
 
-    # 获取历史，不包含当日报价
-    def get_his_fmp(
-        self,
-        symbol,
-        endpoint="v3/historical-price-full",
-        start="",
-        end="",
-        period=None,
-        **query_params,
-    ):
-        """
-        非实时
-        close字段是前复权，adjclose不清楚
-        """
-        if period is not None:
-            end = datetime.today()
-            start = end - relativedelta(months=12 * period)
-            end = end.strftime("%Y-%m-%d")
-            start = start.strftime("%Y-%m-%d")
-        endpoint = (f"{self.url}/{endpoint}/{symbol}?from={start}"
-                    f"&to={end}")
-        res = self._handle_response(endpoint, query_params)
-        try:
-            df = pd.DataFrame.from_records(res["historical"])
-            # 删除不需要字段
-            df.drop(
-                columns=[
-                    "change",
-                    "changePercent",
-                    "changeOverTime",
-                    "label",
-                    "adjClose",
-                    "unadjustedVolume",
-                    "vwap",
-                ],
-                inplace=True,
-            )
-            # 清洗数据
-            df["date"].dropna(inplace=True)
-            df["date"].drop_duplicates(inplace=True)
-            df.sort_values(by=["date"], ignore_index=True, inplace=True)
-            df["pct"] = df["close"].pct_change()
-            # df.fillna(value=0.0, inplace=True)
-            # df = df.replace({np.nan: None})
-            # print(df.dtypes)
-            return df
-        except KeyError:
-            print(symbol, "no data")
-            pass
+    # # 获取历史，不包含当日报价
+    # def get_his_fmp(
+    #     self,
+    #     symbol,
+    #     endpoint="v3/historical-price-full",
+    #     start="",
+    #     end="",
+    #     period=None,
+    #     **query_params,
+    # ):
+    #     """
+    #     非实时
+    #     close字段是前复权，adjclose不清楚
+    #     """
+    #     if period is not None:
+    #         end = datetime.today()
+    #         start = end - relativedelta(months=12 * period)
+    #         end = end.strftime("%Y-%m-%d")
+    #         start = start.strftime("%Y-%m-%d")
+    #     endpoint = (f"{self.url}/{endpoint}/{symbol}?from={start}"
+    #                 f"&to={end}")
+    #     res = self._handle_response(endpoint, query_params)
+    #     try:
+    #         df = pd.DataFrame.from_records(res["historical"])
+    #         # 删除不需要字段
+    #         df.drop(
+    #             columns=[
+    #                 "change",
+    #                 "changePercent",
+    #                 "changeOverTime",
+    #                 "label",
+    #                 "adjClose",
+    #                 "unadjustedVolume",
+    #                 "vwap",
+    #             ],
+    #             inplace=True,
+    #         )
+    #         # 清洗数据
+    #         df["date"].dropna(inplace=True)
+    #         df["date"].drop_duplicates(inplace=True)
+    #         df.sort_values(by=["date"], ignore_index=True, inplace=True)
+    #         df["pct"] = df["close"].pct_change()
+    #         # df.fillna(value=0.0, inplace=True)
+    #         # df = df.replace({np.nan: None})
+    #         # print(df.dtypes)
+    #         return df
+    #     except KeyError:
+    #         print(symbol, "no data")
+    #         pass
 
     @retry(tries=5, delay=5)
     def get_financials(self,
@@ -351,48 +326,3 @@ class FMPClient:
                     merged_df = merged_df.fillna(value=0)  # nan值无法参与计算
                     return merged_df
 
-    def sp500_constituent(self,
-                          endpoint="v3/sp500_constituent",
-                          **query_params):
-        """
-        获得当前sp500构成
-        """
-        endpoint = f"{self.url}/{endpoint}"
-        resp = self._handle_response(endpoint, query_params)
-        # print(resp)
-        sp500_lst = [i["symbol"] for i in resp]
-        return sp500_lst
-
-    @retry(tries=5, delay=5)
-    def sp500_his_list(self,
-                       endpoint="v3/historical/sp500_constituent",
-                       **query_params):
-        """
-        获得历史和现在的sp500
-        """
-        endpoint = f"{self.url}/{endpoint}"
-        resp = self._handle_response(endpoint, query_params)
-        df = pd.DataFrame.from_records(resp)
-        df["date"] = pd.to_datetime(df["date"])
-        df["addedTicker"] = df.apply(
-            lambda x: x["symbol"] if len(x["addedSecurity"]) != 0 else np.nan,
-            axis=1,
-        )
-        df["removedTicker"] = df["removedTicker"].apply(lambda x: np.nan
-                                                        if len(x) == 0 else x)
-        # print(df)
-        added = df["addedTicker"].dropna().tolist()
-        removed = df["removedTicker"].dropna().tolist()
-        # print(sorted(added))
-        # print(sorted(removed))
-        # print(set(added) & set(removed))  # 判断交集，而且不少
-        # 把现在的和曾经删除的都加在一起
-        full_list = self.sp500_constituent()
-        full_list = sorted(list(set(full_list + added + removed)))
-        # print(len(full_list))  # 1063
-        # print(sorted(set(full_list)))
-        if "NWSA" in full_list:
-            full_list.remove("NWSA")
-        full_list = [x for x in full_list if ".A" not in x]  # 删除a类股票
-        # print(len(full_list))
-        return full_list

@@ -13,7 +13,7 @@ pd.set_option('display.float_format', '{:.2f}'.format)
 
 
 load_dotenv(find_dotenv())
-API_Key = os.getenv("FMP_KEY")
+API_Key = os.getenv("FMP")
 
 # client = FMPClient(api_key=API_Key)
 #
@@ -79,4 +79,3 @@ for symbol in ['NVDA', 'TSM', 'AVGO', 'MU', 'QCOM', 'AMD', 'ARM']:
     # 显示图表
     # plt.show()
 
-    plt.savefig(f'0727{symbol}.png', dpi=100)
