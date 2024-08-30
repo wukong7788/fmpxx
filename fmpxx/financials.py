@@ -33,12 +33,15 @@ class Financials(FMPClient):
         
         # 添加date_adj列
         df['date_adj'] = pd.to_datetime(df['date'])
+        # 此处因为已经调整了财报日对应的close，所以不用再根据盘前盘后计算close change
         df.loc[df['time'] == 'amc', 'date_adj'] += pd.Timedelta(days=1)
         
         # 删除原来的date列，并将date_adj重命名为date
         df = df.drop(columns=['date'])
         df = df.rename(columns={'date_adj': 'date'})
         
+        # 添加is_fiscal列，用于判断是否是财报发布日
+        df['is_fiscal'] = True
         # 将date列转换回object类型
         df['date'] = df['date'].dt.strftime('%Y-%m-%d')
         

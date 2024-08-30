@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fmpxx"
-version = "0.2.1"
+version = "0.2.2"
 description = ""
 authors = ["ron <wu.kong@foxmail.com>"]
 readme = "README.md"
@@ -10,7 +10,7 @@ python = "^3.11"
 requests = "^2.31.0"
 python-dotenv = "^1.0.1"
 retry = "^0.9.2"
-pandas = "1.5.3"
+pandas = "^2.2.2"
 
 
 [build-system]

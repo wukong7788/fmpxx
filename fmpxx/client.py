@@ -1,4 +1,6 @@
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import pandas as pd
 from datetime import datetime
 import datetime as dtt
@@ -18,18 +20,26 @@ load_dotenv(find_dotenv())
 class FMPClient:
     DEFAULT_HOST = "https://financialmodelingprep.com/api"
 
-    def __init__(self, api_key: str, timeout: int = 10):
+    def __init__(self, api_key: str, timeout: int = 10, max_retries: int = 3):
         self.api_key = api_key
         self.url = self.DEFAULT_HOST
         self.timeout = timeout
+        self.session = self._create_session(max_retries)
+
+    def _create_session(self, max_retries: int) -> requests.Session:
+        session = requests.Session()
+        retries = Retry(total=max_retries,
+                        backoff_factor=0.1,
+                        status_forcelist=[500, 502, 503, 504])
+        session.mount('https://', HTTPAdapter(max_retries=retries))
+        return session
 
     def _handle_response(self, endpoint: str, params: Dict[str, Any]) -> Any:
         params['apikey'] = self.api_key
         try:
-            with requests.Session() as session:
-                response = session.get(endpoint, params=params, timeout=self.timeout)
-                response.raise_for_status()
-                return response.json()
+            response = self.session.get(endpoint, params=params, timeout=self.timeout)
+            response.raise_for_status()
+            return response.json()
         except requests.RequestException as e:
             print(f"请求失败: {e}")
             return None
@@ -170,7 +180,7 @@ class FMPClient:
     #                 "changePercent",
     #                 "changeOverTime",
     #                 "label",
-    #                 "adjClose",
+    #                "adjClose",
     #                 "unadjustedVolume",
     #                 "vwap",
     #             ],

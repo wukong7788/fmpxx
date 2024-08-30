@@ -1,3 +1,6 @@
+# 0.2.2
+增加了财报日close change的数据
+
 # 0.2.1
 分成了quote, financials, util三个类
 
