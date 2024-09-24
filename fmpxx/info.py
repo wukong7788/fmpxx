@@ -1,13 +1,59 @@
 import requests
 import pandas as pd
 import numpy as np
-from typing import Dict, Any, List
-from fmpxx.client import FMPClient
+from typing import Dict, List
+from fmpxx import FMPClient
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
+"""
+info类来负责非行情，非财务数据
+"""
 
-class CompanyInfo(FMPClient):
+class Info(FMPClient):
     def __init__(self, api_key: str, timeout: int = 10):
         super().__init__(api_key, timeout)
+
+    def get_stock_news(self, symbols: list[str], period: int):
+        """
+        获取指定股票符号的新闻信息。
+
+        参数:
+        symbols (list[str]): 股票符号列表
+        period (int): 要获取新闻的天数
+        """
+        # 将symbols列表中的所有元素转换为大写，并用逗号连接
+        symbols_str = ','.join(symbol.upper() for symbol in symbols)
+        # 计算股票符号的数量
+        symbol_len = len(symbols)
+        # 计算日期范围
+        end_date: datetime = datetime.now()
+        start_date: datetime = end_date - timedelta(days=period)
+        
+        # 格式化日期
+        from_date: str = start_date.strftime('%Y-%m-%d')
+        to_date: str = end_date.strftime('%Y-%m-%d')
+        
+        # 构建 API URL
+        url: str = "https://financialmodelingprep.com/api/v3/stock_news"
+        
+        # 设置参数
+        params: Dict[str, str] = {
+            'tickers': symbols_str,
+            'from': from_date,
+            'to': to_date,
+            'apikey': self.api_key,
+            'limit': symbol_len * 10 * period  # 每天每个股票获取10条新闻
+        }
+        
+        # 发送请求
+        response: requests.Response = requests.get(url, params=params)
+        
+        # 检查响应
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return f"错误: {response.status_code}, {response.text}"
 
     def get_analyst_estimates(self, symbol: str) -> pd.DataFrame:
         """获取分析师估计数据"""

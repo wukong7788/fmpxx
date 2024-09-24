@@ -1,3 +1,9 @@
+# 主要的类和函数
+quote负责行情相关
+financials负责财务相关数据
+info负责其他，比如新闻
+
+
 # 0.2.2
 增加了财报日close change的数据
 

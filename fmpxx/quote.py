@@ -1,7 +1,7 @@
 import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from fmpxx.client import FMPClient
+from fmpxx import FMPClient
 
 pd.set_option("expand_frame_repr", False)  # 当列太多时不换行
 pd.set_option("display.max_rows", 5000)  # 最多显示数据的行数
@@ -32,7 +32,7 @@ class Quote(FMPClient):
         response = self._handle_response(endpoint, {})
         return self.trans_to_df(response)
     
-    def get_stock_history(self, symbol: str, period: int) -> pd.DataFrame:
+    def get_his_daily(self, symbol: str, period: int) -> pd.DataFrame:
         """
         获取指定股票的历史数据，已经包含了开盘当天的数据
 

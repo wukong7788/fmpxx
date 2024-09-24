@@ -1,5 +1,5 @@
-from fmpxx.quote import Quote
-from fmpxx.financials import Financials
+from fmpxx import Quote
+from fmpxx import Financials
 import pandas as pd
 from dotenv import load_dotenv, find_dotenv
 import os
@@ -26,7 +26,7 @@ def get_fiscal_close_chg(api_key: str, symbol: str, period: int, enable_logging:
     """
     quote = Quote(api_key)
     financials = Financials(api_key)
-    his_df = quote.get_stock_history(symbol, period=period)[['date', 'close']]
+    his_df = quote.get_his_daily(symbol, period=period)[['date', 'close']]
 
     eps_df = financials.get_earnings_his(symbol, period)
     eps_df = eps_df.sort_values(by='date', ascending=True, ignore_index=True)
@@ -76,7 +76,7 @@ def merge_eps_his(api_key: str, symbol: str, period: int, enable_logging: bool =
     eps_df['eps'] = eps_df['eps'].fillna(eps_df['epsEstimated'])
     eps_df['eps_ttm'] = eps_df['eps'].rolling(4).sum()
 
-    his_df = quote.get_stock_history(symbol, period=period)
+    his_df = quote.get_his_daily(symbol, period=period)
 
     merged_df = pd.merge(eps_df, his_df, on='date', how='outer', sort=True)
     log(merged_df, enable_logging)

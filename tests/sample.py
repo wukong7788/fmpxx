@@ -1,19 +1,19 @@
 import pandas as pd
-
-from fmpxx.client import FMPClient
-from fmpxx.company_info import CompanyInfo
-from fmpxx.quote import Quote
+from fmpxx import FMPClient
+from fmpxx import Quote
 from dotenv import load_dotenv, find_dotenv
 import os
-from fmpxx.financials import Financials
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
+from fmpxx import Financials
+from fmpxx import Info
 pd.set_option('display.float_format', '{:.2f}'.format)
 # pd.options.display.float_format = '{:.0f}'.format
 
 
 load_dotenv(find_dotenv())
 API_Key = os.getenv("FMP")
+info = Info(API_Key)
+symbols = ['AAPL','NVDA']
+print(info.get_stock_news(symbols=symbols, period=3))
 
 # client = FMPClient(api_key=API_Key)
 #
@@ -37,45 +37,10 @@ API_Key = os.getenv("FMP")
 # quote_client = Quote(API_Key)
 # print(quote_client.get_simple_quote('AAPL'))
 # print(quote_client.get_his_fmp('AAPL'))
-client = Financials(API_Key)
+# client = Financials(API_Key)
 # # print(client.get_financials('ABT',statement='income'))
 # # print(client.get_income_statement('ABT'))
 # # print(client.get_eps('ABT'))
 # print(client.get_earnings_his('TSM'))
 # for symbol in ['NVDA', 'TSLA', 'MSFT', 'AAPL', 'AMZN', 'GOOGL', 'META']:
-for symbol in ['NVDA', 'TSM', 'AVGO', 'MU', 'QCOM', 'AMD', 'ARM']:
-
-# for symbol in ['AVGO']:
-
-    df = client.get_pe(symbol, pe='est')
-    # 将'date'列设置为索引
-    df['date'] = pd.to_datetime(df['date'])
-    df.set_index('date', inplace=True)
-    print(df)
-    # #
-    # 创建图表和轴对象
-    fig, ax1 = plt.subplots()
-    # 绘制第一条曲线（'close'），使用ax1
-    color = 'tab:red'
-    ax1.set_xlabel('date')
-    ax1.set_ylabel('close', color=color)
-    ax1.plot(df.index, df['close'], color=color)
-    ax1.tick_params(axis='y', labelcolor=color)
-
-    # 创建与ax1共享横轴的第二个轴对象
-    ax2 = ax1.twinx()
-    color = 'tab:blue'
-    ax2.set_ylabel('PE', color=color)
-    ax2.plot(df.index, df['pe'], color=color)
-    ax2.tick_params(axis='y', labelcolor=color)
-
-    # 设置x轴的主要刻度格式器为日期格式器，这里我们每5天显示一次日期
-    ax1.xaxis.set_major_locator(mdates.DayLocator(interval=90))
-    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-
-    # 自动调整x轴上的日期标签，以防重叠
-    fig.autofmt_xdate()
-    plt.title(symbol)
-    # 显示图表
-    # plt.show()
 
