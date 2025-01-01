@@ -12,7 +12,7 @@ class Quote(FMPClient):
 
     def get_simple_quote(self, symbol: str) -> pd.DataFrame:
         """
-        获取简单报价数据。
+        最后一日price 和 volume。
         
         :param symbol: 股票代码
         :return: 包含简单报价数据的 DataFrame
@@ -23,7 +23,7 @@ class Quote(FMPClient):
 
     def get_full_quote(self, symbol: str) -> pd.DataFrame:
         """
-        获取完整报价数据。
+        包含最后一日报价，eps，pe 等完整信息
         
         :param symbol: 股票代码
         :return: 包含完整报价数据的 DataFrame
@@ -34,7 +34,7 @@ class Quote(FMPClient):
     
     def get_his_daily(self, symbol: str, period: int) -> pd.DataFrame:
         """
-        获取指定股票的历史数据，已经包含了开盘当天的数据
+        获取指定股票的日线历史数据
 
         :param symbol: 股票代码
         :param period: 获取的年数
