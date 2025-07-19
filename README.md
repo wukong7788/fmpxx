@@ -1,6 +1,5 @@
 # fmpxx - Financial Modeling Prep Python SDK
-uv 是最新，最符合人类的 python 环境和包管理工具，速度也非常快，强烈建议使用！！！
-https://github.com/astral-sh/uv
+
 fmpxx 是一个用于访问 Financial Modeling Prep (FMP) API 的 Python SDK，提供了简单易用的接口来获取金融市场数据。
 
 ## 功能特点
@@ -8,8 +7,6 @@ fmpxx 是一个用于访问 Financial Modeling Prep (FMP) API 的 Python SDK，�
 - 📈 实时股票报价数据
 - 💼 公司财务报表（损益表、资产负债表、现金流量表）
 - 📊 历史股价数据
-- 📰 股票新闻和分析师预测
-- 📊 S&P 500 成分股数据
 - 🔄 自动重试机制和错误处理
 - 🐼 数据返回为 Pandas DataFrame，便于分析
 
@@ -31,80 +28,85 @@ uv install .
 ## 快速开始
 
 ```python
-from fmpxx import FMPClient, Quote, Financials, Info
+from fmpxx import FMPClient
 
 # 初始化客户端
 api_key = "your_api_key"
-client = FMPClient(api_key)
+client = FMPClient(api_key, output_format='pandas')
 
-# 获取股票报价
-quote = Quote(api_key)
-aapl_quote = quote.get_full_quote("AAPL")
+# 获取公司基本面数据
+print("--- Financials ---")
+income_statement = client.financials.get_financials("AAPL", statement="income", limit=1)
+print("Income Statement (first row):\n", income_statement.head(1))
 
-# 获取财务报表
-financials = Financials(api_key)
-income_statement = financials.get_income_statement("AAPL")
+balance_sheet = client.financials.get_financials("AAPL", statement="balance", limit=1)
+print("Balance Sheet (first row):\n", balance_sheet.head(1))
 
-# 获取股票新闻
-info = Info(api_key)
-news = info.get_stock_news(["AAPL", "MSFT"], period=7)
+cash_flow_statement = client.financials.get_financials("AAPL", statement="cash", limit=1)
+print("Cash Flow Statement (first row):\n", cash_flow_statement.head(1))
+
+merged_financials = client.financials.get_merged_financials("AAPL", limit=1)
+print("Merged Financials (first row):\n", merged_financials.head(1))
+
+# 获取股票数据
+print("\n--- Stocks Data ---")
+historical_prices = client.stocks.historical_price_full("AAPL", from_date="2023-01-01", to_date="2023-01-05")
+print("Historical Prices (first 5 rows):\n", historical_prices.head())
+
+stock_list = client.stocks.stock_list()
+print("Stock List (first 5 rows):\n", stock_list.head())
+
+quote = client.stocks.quote("AAPL")
+print("Quote:\n", quote)
+
+search_results = client.stocks.search(query='Apple', limit=2)
+print("Search Results (first 2 rows):\n", search_results.head())
 ```
 
 ## API 文档
 
 ### FMPClient 类
 
-基础客户端类，提供API请求和响应处理功能。
+这是用户与库交互的主要入口。它通过 `api_key` 初始化，并提供对不同数据类别的访问。
 
-#### 主要方法：
-- `_handle_response(endpoint, params)`：处理API请求和响应
-- `trans_to_df(res)`：将API响应转换为DataFrame
+#### 初始化参数：
+- `api_key` (str): 您的 FMP API 密钥。
+- `timeout` (int, optional): 请求超时时间（秒）。默认为 10。
+- `output_format` (str, optional): 期望的输出格式（`'json'` 或 `'pandas'`）。默认为 `'json'`。
 
-### Quote 类
-
-获取股票报价数据。
-
-#### 主要方法：
-- `get_simple_quote(symbol)`：获取简单报价
-- `get_full_quote(symbol)`：获取完整报价
-- `get_his_daily(symbol, period)`：获取历史日线数据
+#### 属性：
+- `financials` (Financials): 访问公司基本面数据，如损益表、资产负债表、现金流量表、财务比率等。
+- `stocks` (Stocks): 访问股票市场数据，如历史价格、实时报价、股票列表和搜索功能。
 
 ### Financials 类
 
-获取公司财务报表数据。
+提供访问 FMP 公司基本面 API 端点的方法。通常通过 `FMPClient.financials` 属性访问。
 
 #### 主要方法：
-- `get_financials(symbol, statement)`：获取指定类型财务报表
-- `get_merged_financials(symbol)`：合并三张财务报表
-- `get_8k_update()`：获取8-K报告更新
-- `get_sec_update(days)`：获取SEC更新
-- `get_income_statement(symbol)`：获取收益报表
-- `get_earnings_his(symbol, period)`：获取历史盈利日历
+- `get_financials(symbol, statement, limit=10, period='quarter', **query_params)`: 获取指定类型的财务报表数据（如收入报表、资产负债表、现金流量表）。
+- `get_merged_financials(symbol, limit=40, period='quarter')`: 合并现金流量表、损益表和资产负债表三张财务报表。
 
-### Info 类
+### Stocks 类
 
-获取非行情、非财务数据。
+提供访问 FMP 股票 API 端点的方法。通常通过 `FMPClient.stocks` 属性访问。
 
 #### 主要方法：
-- `get_stock_news(symbols, period)`：获取股票新闻
-- `get_analyst_estimates(symbol)`：获取分析师预测
-- `sp500_constituent()`：获取当前S&P 500成分股
-- `sp500_his_list()`：获取历史和当前S&P 500成分股
-- `get_tickers()`：获取股票列表
-- `get_available_tickers()`：获取可交易证券列表
+- `historical_price_full(symbol, series_type=None, from_date=None, to_date=None)`: 获取股票的完整历史日价格。
+- `daily_prices(symbol, from_date=None, to_date=None)`: 获取股票的历史日价格（线形图）。
+- `stock_list()`: 获取所有可用股票的列表。
+- `quote(symbol)`: 获取给定股票的实时报价。
+- `search(query, exchange=None, limit=10)`: 按名称或符号搜索公司。
 
+## 贡献指南
 
+欢迎贡献代码！请遵循以下步骤：
+
+1. Fork 本项目
+2. 创建新的分支 (`git checkout -b feature/YourFeature`)
+3. 提交更改 (`git commit -m 'Add some feature'`)
+4. 推送到分支 (`git push origin feature/YourFeature`)
+5. 创建 Pull Request
 
 ## 许可证
 
 本项目采用 MIT 许可证。详情请见 LICENSE 文件。
-
-## 版本历史
-### 0.2.5
-重新整理了 client，quote，financials 几个文件的分工
-
-### 0.2.2
-- 增加了财报日 close change 的数据
-
-### 0.2.1
-- 将功能模块化为 quote, financials, util 三个类
