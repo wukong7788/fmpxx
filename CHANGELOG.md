@@ -1,5 +1,9 @@
 ## Changelog
 
+### 0.2.8
+- Added interactive AI Agent simulator (`fmpxx/agent/interactive_agent.py`) to demonstrate natural language interaction with the library.
+- Updated `README.md` with instructions for the AI Agent simulator.
+
 ### 0.2.7
 - Refactored `financials.py`:
     - Consolidated specific financial statement methods (income, balance, cash flow, ratios, enterprise value, key metrics, growth metrics) into a single, more flexible `get_financials` function.

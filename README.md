@@ -63,6 +63,32 @@ search_results = client.stocks.search(query='Apple', limit=2)
 print("Search Results (first 2 rows):\n", search_results.head())
 ```
 
+## AI Agent 示例
+
+`fmpxx/agent/interactive_agent.py` 文件提供了一个模拟的 AI 代理，演示了如何通过自然语言（模拟的函数调用格式）与 `fmpxx` 库进行交互。这个示例展示了如何将用户意图映射到库中的函数，并执行这些函数以获取数据。
+
+**运行 AI Agent 模拟器：**
+
+1.  确保你已安装所有依赖项并激活了虚拟环境。
+2.  运行以下命令启动模拟器：
+
+    ```bash
+    source .venv/bin/activate
+    python fmpxx/agent/interactive_agent.py
+    ```
+
+3.  在模拟器中，你可以输入 `help` 查看所有可用的工具及其参数。
+4.  按照 `call_tool_name(param1=value1, param2=value2)` 的格式输入命令来模拟 AI 代理的函数调用。
+
+**示例命令：**
+
+*   `call_get_financials(symbol='AAPL', statement='income', limit=1, period='quarter')`
+*   `call_historical_price_full(symbol='GOOG', period=5)`
+*   `call_quote(symbol='MSFT')`
+*   `call_search(query='Tesla', exchange='NASDAQ')`
+*   `call_get_merged_financials(symbol='AMZN')`
+*   `call_daily_prices(symbol='IBM', start='2023-01-01', end='2023-01-31')`
+
 ## API 文档
 
 ### FMPClient 类
@@ -92,7 +118,7 @@ print("Search Results (first 2 rows):\n", search_results.head())
 
 #### 主要方法：
 - `historical_price_full(symbol, series_type=None, from_date=None, to_date=None)`: 获取股票的完整历史日价格。
-- `daily_prices(symbol, from_date=None, to_date=None)`: 获取股票的历史日价格（线形图）。
+- `daily_prices(symbol, start=None, end=None, period=None)`: 获取股票的历史日价格（线形图）。
 - `stock_list()`: 获取所有可用股票的列表。
 - `quote(symbol)`: 获取给定股票的实时报价。
 - `search(query, exchange=None, limit=10)`: 按名称或符号搜索公司。
