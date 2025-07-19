@@ -66,8 +66,12 @@ print("\n--- Testing Stocks Data ---")
 try:
     # Test historical price full
     print(f"Fetching historical daily prices for {ticker}...")
-    historical_prices = client.stocks.historical_price_full(ticker, from_date="2023-01-01", to_date="2023-01-05")
+    historical_prices = client.stocks.historical_price_full(ticker, start="2023-01-01", end="2023-01-05")
     print("Historical Prices (first 5 rows):\n", historical_prices.head())
+
+    print(f"Fetching historical daily prices for {ticker} for the last 1 year...")
+    historical_prices_period = client.stocks.historical_price_full(ticker, period=1)
+    print("Historical Prices (last 1 year, first 5 rows):\n", historical_prices_period.head())
 
     # Test stock list (limit to first 5 for brevity)
     print("Fetching stock list (first 5 entries)...")
