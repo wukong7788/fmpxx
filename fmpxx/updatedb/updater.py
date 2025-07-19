@@ -1,6 +1,6 @@
 from typing import List, Dict
 from datetime import datetime
-from .database import FMPDatabase
+# from .database import FMPDatabase
 from fmpxx.financials import Financials
 
 def update_earnings_transcripts(api_key: str, symbol: str, db_path: str = "fmp_data.db", period: int = 3) -> int:

@@ -1,6 +1,6 @@
 [project]
 name = "fmpxx"
-version = "0.2.6"
+version = "0.3.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11.11"
@@ -9,4 +9,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "requests>=2.32.3",
     "retry>=0.9.2",
+    "phidata>=2.7.0",
+    "pydantic>=2.0.0",
+    "google-generativeai>=0.8.5",
 ]

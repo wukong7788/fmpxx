@@ -1,5 +1,6 @@
 from .base import _BaseClient
 import pandas as pd
+from datetime import datetime, timedelta
 
 class Stocks(_BaseClient):
     """Client for FMP Stock API endpoints."""
@@ -7,15 +8,16 @@ class Stocks(_BaseClient):
     def __init__(self, api_key: str, timeout: int = 10, output_format: str = 'json'):
         super().__init__(api_key, timeout, output_format)
 
-    def historical_price_full(self, symbol: str, series_type: str = None, from_date: str = None, to_date: str = None):
+    def historical_price_full(self, symbol: str, series_type: str = None, start: str = None, end: str = None, period: int = None):
         """
         Get full historical daily prices for a given symbol.
 
         Args:
             symbol (str): Stock ticker symbol (e.g., 'AAPL').
             series_type (str, optional): Type of series (e.g., 'line').
-            from_date (str, optional): Start date in YYYY-MM-DD format.
-            to_date (str, optional): End date in YYYY-MM-DD format.
+            start (str, optional): Start date in YYYY-MM-DD format.
+            end (str, optional): End date in YYYY-MM-DD format.
+            period (int, optional): Number of years to retrieve data for, ending today. Takes precedence over `start` if both are provided.
 
         Returns:
             list or pandas.DataFrame: Historical price data.
@@ -23,27 +25,55 @@ class Stocks(_BaseClient):
         endpoint = f"historical-price-full/{symbol}"
         params = {}
         if series_type: params['serietype'] = series_type
-        if from_date: params['from'] = from_date
-        if to_date: params['to'] = to_date
+
+        if period is not None:
+            today = datetime.now()
+            start_date = today - timedelta(days=365 * period) # Approximate years
+            params['from'] = start_date.strftime('%Y-%m-%d')
+            params['to'] = today.strftime('%Y-%m-%d')
+        else:
+            if start: params['from'] = start
+            if end: params['to'] = end
 
         data = self._make_request(endpoint, params)
         if data and 'historical' in data:
-            return self._process_response(data['historical'])
-        return self._process_response(data)
+            df = self._process_response(data['historical'])
+        else:
+            df = self._process_response(data)
 
-    def daily_prices(self, symbol: str, from_date: str = None, to_date: str = None):
+        if not df.empty:
+            # Ensure 'date' column is datetime for proper sorting and deduplication
+            if 'date' in df.columns:
+                df['date'] = pd.to_datetime(df['date'])
+                # Sort by date (descending) and drop duplicates, keeping the latest
+                df = df.sort_values(by='date', ascending=False).drop_duplicates(subset=['date'], keep='first')
+                # Sort by date (ascending) for final output
+                df = df.sort_values(by='date', ascending=True, ignore_index=True)
+
+            # Select only the required columns
+            required_columns = ['date', 'open', 'high', 'low', 'close']
+            df = df[[col for col in required_columns if col in df.columns]]
+
+            # Calculate pct_chg
+            if 'close' in df.columns:
+                df['pct_chg'] = df['close'].pct_change()
+
+        return df
+
+    def daily_prices(self, symbol: str, start: str = None, end: str = None, period: int = None):
         """
         Get historical daily prices for a given symbol (line series).
 
         Args:
             symbol (str): Stock ticker symbol (e.g., 'AAPL').
-            from_date (str, optional): Start date in YYYY-MM-DD format.
-            to_date (str, optional): End date in YYYY-MM-DD format.
+            start (str, optional): Start date in YYYY-MM-DD format.
+            end (str, optional): End date in YYYY-MM-DD format.
+            period (int, optional): Number of years to retrieve data for, ending today. Takes precedence over `start` if both are provided.
 
         Returns:
             list or pandas.DataFrame: Daily price data.
         """
-        return self.historical_price_full(symbol, series_type='line', from_date=from_date, to_date=to_date)
+        return self.historical_price_full(symbol, series_type='line', start=start, end=end, period=period)
 
     def stock_list(self):
         """
