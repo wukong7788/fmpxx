@@ -8,3 +8,4 @@ __pycache__/
 build/
 fmpxx.egg-info/
 rules.md
+output.txt
