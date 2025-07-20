@@ -1,17 +1,21 @@
 ## Changelog
 
-### 0.3.0
-- 🧠 **Added AI Agent functionality** (`fmpxx.agent`) based on phidata framework
+### 0.3.1
+- 🔄 **Migrated from phidata to Agno framework**
+  - Updated all imports from `phi` to `agno`
+  - Replaced `phidata` dependency with `agno>=1.0.0`
+  - Updated Google Gemini integration to use `google-genai>=1.26.0`
+  - All AI Agent functionality preserved with improved performance
+- 🧠 **AI Agent functionality** (`fmpxx.agent`) now based on Agno framework
   - Natural language understanding for financial queries (Chinese & English)
   - Intelligent function calling using Gemini 2.5 Flash model
   - Support for stock data (K-line, historical prices, quotes)
   - Support for financial statements (income, balance sheet, cash flow)
-  - Integrated search functionality
 - 📦 **Package restructure** for PyPI compatibility
   - Moved AI agent to `fmpxx/fmpxx/agent/` directory
   - Added `create_agent()` factory function to main package
   - Fixed circular import issues
-- 🔧 **Dependencies update**: Added `phidata`, `google-generativeai`, `pydantic`
+- 🔧 **Dependencies update**: Added `agno`, `google-genai`, `pydantic`
 - 📝 **Updated documentation** with AI Agent usage examples
 
 ### 0.2.8

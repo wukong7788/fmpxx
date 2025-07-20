@@ -3,9 +3,9 @@ import json
 from typing import Optional
 from dotenv import load_dotenv
 
-from phi.agent import Agent
-from phi.model.google import Gemini
-from phi.tools import Toolkit
+from agno.agent import Agent
+from agno.models.google import Gemini
+from agno.tools import Toolkit
 
 from .tools import FinancialsTools, StocksTools
 
