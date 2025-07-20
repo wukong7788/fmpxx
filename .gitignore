@@ -9,3 +9,5 @@ build/
 fmpxx.egg-info/
 rules.md
 output.txt
+CLAUDE.md
+agents_rules.md
