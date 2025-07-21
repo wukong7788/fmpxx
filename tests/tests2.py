@@ -37,5 +37,18 @@ print("\n--- Testing Financials ---")
 # print(f"Fetching income statement for {ticker}...")
 income_statement = client.financials.get_financials(statement='income',symbol=ticker, limit=4)
 # print("Income Statement (first row):\n", income_statement)
-client.financials.get_merged_financials(symbol=ticker,limit=4).to_csv(f'tests/{ticker}.csv')
+merged_data = client.financials.get_merged_financials(symbol=ticker,limit=4)
+if merged_data is not None:
+    merged_data.to_csv(f'tests/{ticker}.csv')
+else:
+    print("Failed to get merged financials")
 # print(client.stocks.historical_price_full(symbol=ticker,period=1))
+
+print("\n--- Testing Stock Performance ---")
+performance = client.financials.get_stock_performance(symbol=ticker, limit=8)
+if performance is not None:
+    print("Stock Performance Data:")
+    print(performance)
+    print(f"Columns: {list(performance.columns)}")
+else:
+    print("Failed to get stock performance data")

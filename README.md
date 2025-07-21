@@ -48,8 +48,15 @@ print("Cash Flow Statement (first row):\n", cash_flow_statement.head(1))
 merged_financials = client.financials.get_merged_financials("AAPL", limit=1)
 print("Merged Financials (first row):\n", merged_financials.head(1))
 
-# 获取股票数据
-print("\n--- Stocks Data ---")
+# 获取股票关键业绩指标
+print("\n--- Stock Performance Analysis ---")
+performance = client.financials.get_stock_performance("AAPL", limit=8)
+print("Key Performance Metrics (first 3 quarters):\n", performance.head(3))
+
+# 自由现金流利润率计算公式说明
+print("\n自由现金流利润率计算公式:")
+print("freeCashFlowMargin = freeCashFlow / revenue")
+print("当API未提供自由现金流时，使用: freeCashFlow = netCashProvidedByOperatingActivities + capitalExpenditure")
 historical_prices = client.stocks.historical_price_full("AAPL", from_date="2023-01-01", to_date="2023-01-05")
 print("Historical Prices (first 5 rows):\n", historical_prices.head())
 
@@ -152,6 +159,15 @@ uv run python test_agent.py --chat
 #### 主要方法：
 - `get_financials(symbol, statement, limit=10, period='quarter', **query_params)`: 获取指定类型的财务报表数据（如收入报表、资产负债表、现金流量表）。
 - `get_merged_financials(symbol, limit=40, period='quarter')`: 合并现金流量表、损益表和资产负债表三张财务报表。
+- `get_stock_performance(symbol, limit=8, period='quarter')`: 获取股票关键业绩指标，包括营收增长率、毛利率、EPS增长率、运营利润率和自由现金流利润率。
+
+#### 自由现金流利润率计算
+- **公式**: `freeCashFlowMargin = freeCashFlow / revenue`
+- **备用计算**（当API未提供自由现金流时）：
+  ```
+  freeCashFlow = netCashProvidedByOperatingActivities + capitalExpenditure
+  ```
+- **返回数据**: 包含calendarYear、period、revenue、revenue_growth_rate、grossProfitRatio、eps、eps_growth_rate、operatingIncomeRatio、freeCashFlowMargin
 
 ### Stocks 类
 

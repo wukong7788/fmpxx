@@ -1,7 +1,7 @@
 from .base import _BaseClient
 import pandas as pd
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -23,7 +23,7 @@ class Financials(_BaseClient):
         limit: int = 10,
         period: str = 'quarter',
         **query_params: Dict[str, Any]
-    ) -> pd.DataFrame:
+    ) -> Union[pd.DataFrame, Any]:
         """
         获取指定类型的财务报表数据。
 
@@ -138,3 +138,86 @@ class Financials(_BaseClient):
             merged_df.drop(columns=["verify"])
             .fillna(value=0)
         )
+
+    def get_stock_performance(self, symbol: str, limit: int = 8, period: str = 'quarter') -> Optional[pd.DataFrame]:
+        """
+        获取股票关键业绩指标，包括营收增长、毛利率、EPS、运营利润率和自由现金流利润率。
+        
+        Args:
+            symbol (str): 股票代码
+            limit (int): 返回的季度数，默认8个季度
+            period (str): 报表周期，'annual' 或 'quarter'
+            
+        Returns:
+            Optional[pd.DataFrame]: 包含关键业绩指标的DataFrame，如果数据无效则返回None
+            
+        Note:
+            - 营收(revenue)及增长率
+            - 毛利率(grossProfitRatio)
+            - EPS及增长率
+            - 运营利润率(operatingIncomeRatio)
+            - 自由现金流利润率(FCF/revenue)，如无现成数据则计算
+        """
+        # 获取合并财务报表
+        merged_df = self.get_merged_financials(symbol, limit=limit, period=period)
+        if merged_df is None or merged_df.empty:
+            return None
+            
+        # 选择需要的列并重命名
+        performance_cols = [
+            'period_date', 'date', 'symbol', 'calendarYear', 'period',
+            'revenue', 'grossProfitRatio', 'eps',
+            'operatingIncomeRatio', 'netIncome',
+            'netCashProvidedByOperatingActivities',  # 经营现金流
+            'capitalExpenditure',  # 资本支出
+            'freeCashFlow'  # 自由现金流（如果有）
+        ]
+        
+        # 确保所有需要的列都存在
+        available_cols = [col for col in performance_cols if col in merged_df.columns]
+        performance_df = merged_df[available_cols].copy()
+        
+        # 计算自由现金流（如果没有现成的）
+        if 'freeCashFlow' not in available_cols:
+            if ('netCashProvidedByOperatingActivities' in available_cols and 
+                'capitalExpenditure' in available_cols):
+                performance_df['freeCashFlow'] = (
+                    performance_df['netCashProvidedByOperatingActivities'] + 
+                    performance_df['capitalExpenditure']
+                )
+        
+        # 计算自由现金流利润率
+        if 'freeCashFlow' in performance_df.columns:
+            performance_df['freeCashFlowMargin'] = (
+                performance_df['freeCashFlow'] / performance_df['revenue']
+            )
+        
+        # 计算营收增长率
+        if 'revenue' in performance_df.columns:
+            performance_df['revenue_growth_rate'] = performance_df['revenue'].pct_change()
+        
+        # 计算EPS增长率
+        if 'eps' in performance_df.columns:
+            performance_df['eps_growth_rate'] = performance_df['eps'].pct_change()
+        
+        # 按日期排序（最新的在前）
+        performance_df = performance_df.sort_values('date', ascending=False)
+        
+        # 选择最终需要的列
+        final_cols = [
+            'period_date', 'date', 'symbol', 'calendarYear', 'period',
+            'revenue', 'revenue_growth_rate',
+            'grossProfitRatio',
+            'eps', 'eps_growth_rate',
+            'operatingIncomeRatio',
+            'freeCashFlowMargin'
+        ]
+        
+        # 只返回存在的列
+        final_available_cols = [col for col in final_cols if col in performance_df.columns]
+        result_df = performance_df[final_available_cols].copy()
+        
+        # 数据清洗
+        result_df = result_df.fillna(0)
+        
+        return result_df

@@ -1,5 +1,17 @@
 ## Changelog
 
+### 0.3.2
+- 🆕 **新增股票业绩指标功能**
+  - 新增 `Financials.get_stock_performance()` 方法，提供关键业绩指标
+  - 包含营收(revenue)及增长率、毛利率(grossProfitRatio)、EPS及增长率
+  - 提供运营利润率(operatingIncomeRatio)和自由现金流利润率(freeCashFlowMargin)
+- 📊 **自由现金流利润率计算**
+  - 公式：`freeCashFlowMargin = freeCashFlow / revenue`
+  - 当API未提供自由现金流时，自动计算：`freeCashFlow = netCashProvidedByOperatingActivities + capitalExpenditure`
+- 🗓️ **增强数据展示**
+  - 新增 `calendarYear` 和 `period` 列，便于时间序列分析
+  - 按日期降序排列，最新季度在前
+
 ### 0.3.1
 - 🔄 **Migrated from phidata to Agno framework**
   - Updated all imports from `phi` to `agno`
