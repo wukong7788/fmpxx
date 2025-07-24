@@ -58,3 +58,15 @@ class _BaseClient:
                 print(f"Warning: Could not convert to Pandas DataFrame. Returning JSON. Error: {e}")
                 return data
         return data
+
+    def _ensure_dataframe(self, data) -> pd.DataFrame:
+        """Ensure data is a DataFrame type"""
+        if isinstance(data, list):
+            return pd.DataFrame(data)
+        return data if isinstance(data, pd.DataFrame) else pd.DataFrame()
+
+    def _standardize_date_format(self, df: pd.DataFrame, date_col: str = 'date') -> pd.DataFrame:
+        """Standardize date format to YYYY-MM-DD"""
+        if date_col in df.columns:
+            df[date_col] = pd.to_datetime(df[date_col]).dt.strftime('%Y-%m-%d')
+        return df

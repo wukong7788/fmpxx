@@ -13,8 +13,11 @@ logger.addHandler(handler)
 class Financials(_BaseClient):
     """Client for FMP Company Fundamentals API endpoints."""
 
-    def __init__(self, api_key: str, timeout: int = 10, output_format: str = 'json'):
+    def __init__(self, api_key: str, timeout: int = 10, output_format: str = 'json', debug: bool = False):
         super().__init__(api_key, timeout, output_format)
+        self.debug = debug
+        if debug:
+            logger.setLevel(logging.DEBUG)
 
     def get_financials(
         self,
@@ -23,24 +26,23 @@ class Financials(_BaseClient):
         limit: int = 10,
         period: str = 'quarter',
         **query_params: Dict[str, Any]
-    ) -> Union[pd.DataFrame, Any]:
+    ) -> pd.DataFrame:
         """
-        获取指定类型的财务报表数据。
+        Fetch specific type of financial statement data.
 
         Args:
-            symbol (str): 股票代码
-            statement (str): 报表类型，可选值：'income', 'balance', 'cash', 'ratios', 'enterprise-value', 'key-metrics', 'financial-growth'
-            limit (int): 限制返回的数据条数。
-            period (str): 报表周期，'annual' 或 'quarter'。
-            **query_params: 其他查询参数
+            symbol: Stock ticker symbol
+            statement: Statement type ('income', 'balance', 'cash', 'ratios', 'enterprise-value', 'key-metrics', 'financial-growth')
+            limit: Number of records to return
+            period: Reporting period ('annual' or 'quarter')
+            **query_params: Additional query parameters
 
         Returns:
-            pd.DataFrame: 包含财务报表数据的DataFrame
+            pd.DataFrame: Financial statement data
 
         Raises:
-            ValueError: 如果statement参数无效
+            ValueError: If statement parameter is invalid
         """
-        # 映射报表类型到API端点
         endpoint_map = {
             "income": "income-statement",
             "balance": "balance-sheet-statement", 
@@ -50,33 +52,28 @@ class Financials(_BaseClient):
         if statement not in endpoint_map:
             raise ValueError(f"Invalid statement type: {statement}")
 
-        # Combine direct parameters with query_params
-        all_params = {"limit": limit, "period": period}
-        all_params.update(query_params)
-
-        # Use self._make_request for consistency
-        res = self._make_request(f"{endpoint_map[statement]}/{symbol}", all_params)
+        params = {"limit": limit, "period": period, **query_params}
+        data = self._make_request(f"{endpoint_map[statement]}/{symbol}", params)
         
-        if not res:
-            logger.warning(f"获取{symbol}的{statement}报表数据失败")
-            return pd.DataFrame()
-
-        return self._process_response(res)
+        df = self._process_response(data)
+        return self._ensure_dataframe(df)
 
     def get_merged_financials(self, symbol: str, limit: int = 40, period: str = 'quarter') -> Optional[pd.DataFrame]:
         """
-        合并现金流量表、损益表和资产负债表三张财务报表。
+        Merge cash flow, income statement, and balance sheet financial statements.
 
         Args:
-            symbol (str): 股票代码
+            symbol: Stock ticker symbol
+            limit: Number of records to return
+            period: Reporting period ('annual' or 'quarter')
 
         Returns:
-            Optional[pd.DataFrame]: 合并后的财务报表DataFrame，如果数据无效则返回None
+            Optional[pd.DataFrame]: Merged financial statements DataFrame, None if data is invalid
 
         Note:
-            - 使用inner join确保三张报表数据完整
-            - 处理特殊股票的数据异常
-            - 检查数据连续性和完整性
+            - Uses inner join to ensure complete data across all three statements
+            - Handles special stock data anomalies
+            - Checks data continuity and completeness
         """
         # 获取三张财务报表
         income = self.get_financials(symbol, statement="income", period=period, limit=limit)
@@ -141,7 +138,7 @@ class Financials(_BaseClient):
 
     def get_stock_performance(self, symbol: str, limit: int = 8, period: str = 'quarter') -> Optional[pd.DataFrame]:
         """
-        获取股票关键业绩指标，包括营收增长、毛利率、EPS、运营利润率和自由现金流利润率。
+        获取股票全面业绩指标，使用实际可用的财务数据列。
         
         Args:
             symbol (str): 股票代码
@@ -149,75 +146,236 @@ class Financials(_BaseClient):
             period (str): 报表周期，'annual' 或 'quarter'
             
         Returns:
-            Optional[pd.DataFrame]: 包含关键业绩指标的DataFrame，如果数据无效则返回None
-            
-        Note:
-            - 营收(revenue)及增长率
-            - 毛利率(grossProfitRatio)
-            - EPS及增长率
-            - 运营利润率(operatingIncomeRatio)
-            - 自由现金流利润率(FCF/revenue)，如无现成数据则计算
+            Optional[pd.DataFrame]: 包含全面业绩指标的DataFrame，如果数据无效则返回None
         """
         # 获取合并财务报表
         merged_df = self.get_merged_financials(symbol, limit=limit, period=period)
         if merged_df is None or merged_df.empty:
             return None
             
-        # 选择需要的列并重命名
-        performance_cols = [
+        # 基于实际AAPL.csv可用的列
+        performance_df = merged_df[[
             'period_date', 'date', 'symbol', 'calendarYear', 'period',
-            'revenue', 'grossProfitRatio', 'eps',
-            'operatingIncomeRatio', 'netIncome',
-            'netCashProvidedByOperatingActivities',  # 经营现金流
-            'capitalExpenditure',  # 资本支出
-            'freeCashFlow'  # 自由现金流（如果有）
-        ]
+            'revenue', 'grossProfitRatio', 'epsdiluted', 'operatingIncomeRatio', 
+            'operatingIncome', 'freeCashFlow', 'totalDebt', 'totalAssets'
+        ]].copy()
         
-        # 确保所有需要的列都存在
-        available_cols = [col for col in performance_cols if col in merged_df.columns]
-        performance_df = merged_df[available_cols].copy()
+        # 计算质量指标
+        performance_df['freeCashFlowMargin'] = performance_df['freeCashFlow'] / performance_df['revenue']
+        performance_df['debtToAssetRatio'] = performance_df['totalDebt'] / performance_df['totalAssets']
         
-        # 计算自由现金流（如果没有现成的）
-        if 'freeCashFlow' not in available_cols:
-            if ('netCashProvidedByOperatingActivities' in available_cols and 
-                'capitalExpenditure' in available_cols):
-                performance_df['freeCashFlow'] = (
-                    performance_df['netCashProvidedByOperatingActivities'] + 
-                    performance_df['capitalExpenditure']
-                )
+        # 计算同比增长率（按年度和季度匹配）
+        performance_df['year'] = pd.to_datetime(performance_df['period_date']).dt.year
+        performance_df['quarter'] = pd.to_datetime(performance_df['period_date']).dt.quarter
         
-        # 计算自由现金流利润率
-        if 'freeCashFlow' in performance_df.columns:
-            performance_df['freeCashFlowMargin'] = (
-                performance_df['freeCashFlow'] / performance_df['revenue']
-            )
+        # 按股票代码、年份、季度排序，确保顺序正确
+        performance_df = performance_df.sort_values(['symbol', 'year', 'quarter'])
         
-        # 计算营收增长率
-        if 'revenue' in performance_df.columns:
-            performance_df['revenue_growth_rate'] = performance_df['revenue'].pct_change()
-        
-        # 计算EPS增长率
-        if 'eps' in performance_df.columns:
-            performance_df['eps_growth_rate'] = performance_df['eps'].pct_change()
+        # 计算同比增长率（匹配相同季度，不同年份）
+        performance_df['revenue_growth_rate'] = performance_df.groupby(['symbol', 'quarter'])['revenue'].pct_change()
+        performance_df['operatingIncome_growth_rate'] = performance_df.groupby(['symbol', 'quarter'])['operatingIncome'].pct_change()
+        performance_df['eps_diluted_growth_rate'] = performance_df.groupby(['symbol', 'quarter'])['epsdiluted'].pct_change()
         
         # 按日期排序（最新的在前）
         performance_df = performance_df.sort_values('date', ascending=False)
         
         # 选择最终需要的列
-        final_cols = [
+        result_df = performance_df[[
             'period_date', 'date', 'symbol', 'calendarYear', 'period',
-            'revenue', 'revenue_growth_rate',
+            # 质量指标
             'grossProfitRatio',
-            'eps', 'eps_growth_rate',
             'operatingIncomeRatio',
-            'freeCashFlowMargin'
-        ]
-        
-        # 只返回存在的列
-        final_available_cols = [col for col in final_cols if col in performance_df.columns]
-        result_df = performance_df[final_available_cols].copy()
+            'freeCashFlowMargin',
+            'debtToAssetRatio',
+            # 成长指标
+            'revenue', 'revenue_growth_rate',
+            'operatingIncome', 'operatingIncome_growth_rate',
+            # 估值指标
+            'epsdiluted', 'eps_diluted_growth_rate'
+        ]].copy()
         
         # 数据清洗
-        result_df = result_df.fillna(0)
+        return result_df.fillna(0)
+
+    def get_earnings_his(self, symbol: str, period: int = 3) -> pd.DataFrame:
+        """
+        Fetch historical earnings calendar for a given symbol.
+
+        Args:
+            symbol: Stock ticker symbol
+            period: Number of years to retrieve data for, defaults to 3
+
+        Returns:
+            pd.DataFrame: Historical earnings data
+        """
+        endpoint = f"historical/earning_calendar/{symbol}"
+        params = {"limit": period * 4 + 4}  # Typically 4 empty records max
         
-        return result_df
+        data = self._make_request(endpoint, params)
+        df = self._ensure_dataframe(self._process_response(data))
+        
+        if df.empty:
+            return df
+            
+        # Process date adjustments for AMC (after market close) reports
+        if 'date' in df.columns:
+            df['date_adj'] = pd.to_datetime(df['date'])
+            if 'time' in df.columns:
+                df.loc[df['time'] == 'amc', 'date_adj'] += pd.Timedelta(days=1)
+            
+            df = (df
+                  .drop(columns=['date'])
+                  .rename(columns={'date_adj': 'date'})
+                  .assign(is_fiscal=True)
+                  .pipe(self._standardize_date_format)
+                  .sort_values('date', ascending=False)
+                  .reset_index(drop=True))
+        
+        return df
+
+    def merge_eps_his(self, symbol: str, period: int = 3, enable_logging: bool = True) -> pd.DataFrame:
+        """
+        生成pe和his的时序数据。
+        注意：如果发布财报后使用需要等开盘数据，要不然没有close，最新的epsttm会被删除
+        
+        Args:
+            symbol (str): 股票代码
+            period (int): 获取历史数据的年数
+            enable_logging (bool): 是否启用日志记录，默认为True
+            
+        Returns:
+            pd.DataFrame: 包含PE计算结果的DataFrame
+        """
+        from .stocks import Stocks
+        
+        # 获取历史盈利数据
+        eps_df = self.get_earnings_his(symbol, period)
+        if eps_df.empty:
+            logger.warning(f"No earnings data found for {symbol}")
+            return pd.DataFrame()
+            
+        eps_df = eps_df.sort_values(by='date', ascending=True, ignore_index=True)
+        
+        if enable_logging:
+            logger.info(f"Earnings data shape: {eps_df.shape}")
+            logger.info(f"Earnings columns: {list(eps_df.columns)}")
+        
+        # 处理EPS数据
+        eps_df['forward'] = eps_df.get('eps', pd.Series()).isnull()
+        eps_df['eps'] = eps_df.get('eps', pd.Series()).fillna(eps_df.get('epsEstimated', pd.Series()))
+        eps_df['eps_ttm'] = eps_df['eps'].rolling(4).sum()
+
+        # 获取历史价格数据
+        stocks_client = Stocks(self.api_key, self.timeout, self.output_format)
+        his_df = stocks_client.historical_price_full(symbol, period=period)
+        his_df = self._ensure_dataframe(his_df)
+        
+        if his_df.empty or 'date' not in his_df.columns or 'close' not in his_df.columns:
+            logger.warning(f"No valid price data found for {symbol}")
+            return pd.DataFrame()
+            
+        his_df = his_df[['date', 'close']].copy()
+
+        # 确保日期格式一致
+        eps_df = self._standardize_date_format(eps_df)
+        his_df = self._standardize_date_format(his_df)
+        
+        # 合并数据
+        merged_df = pd.merge(eps_df, his_df, on='date', how='outer', sort=True)
+        
+        if enable_logging:
+            logger.info(f"Merged data shape: {merged_df.shape}")
+        
+        # 填充数据
+        merged_df['eps_ttm'] = merged_df['eps_ttm'].bfill().ffill()
+        merged_df['forward'] = merged_df['forward'].bfill()
+        merged_df = merged_df.round(2)
+        
+        # 计算市盈率(PE)
+        merged_df['pe'] = merged_df.apply(
+            lambda row: row['close'] / row['eps_ttm'] if row['eps_ttm'] > 0 else 0, 
+            axis=1
+        )
+        
+        # 选择需要的列并删除没有收盘价的行
+        selected = merged_df[
+            ['date', 'eps_ttm', 'pe', 'close', 'eps', 'forward']
+        ].dropna(subset=['close'])
+        
+        return selected
+
+    def get_fiscal_close_chg(self, symbol: str, period: int = 3, enable_logging: bool = False) -> pd.DataFrame:
+        """
+        分析发布财报后close的变动
+        
+        Args:
+            symbol (str): 股票代码
+            period (int): 获取历史数据的年数
+            enable_logging (bool): 是否启用日志记录，默认为False
+            
+        Returns:
+            pd.DataFrame: 包含财报发布后收盘价变动的DataFrame
+        """
+        from .stocks import Stocks
+        
+        # 获取历史价格数据
+        stocks_client = Stocks(self.api_key, self.timeout, self.output_format)
+        his_df = stocks_client.historical_price_full(symbol, period=period)
+        his_df = self._ensure_dataframe(his_df)
+        
+        if his_df.empty or 'date' not in his_df.columns or 'close' not in his_df.columns:
+            logger.warning(f"No valid price data found for {symbol}")
+            return pd.DataFrame()
+            
+        his_df = his_df[['date', 'close']].copy()
+
+        # 获取历史盈利数据
+        eps_df = self.get_earnings_his(symbol, period)
+        if eps_df.empty:
+            logger.warning(f"No earnings data found for {symbol}")
+            return pd.DataFrame()
+            
+        eps_df = eps_df.sort_values(by='date', ascending=True, ignore_index=True)
+        
+        # 确保日期格式一致
+        eps_df = self._standardize_date_format(eps_df)
+        his_df = self._standardize_date_format(his_df)
+        
+        # 合并数据
+        merged_df = pd.merge(eps_df, his_df, on='date', how='outer', sort=True)
+        
+        if enable_logging:
+            logger.info(f"Merged data shape: {merged_df.shape}")
+            logger.info(f"Merged data:\n{merged_df.head()}")
+        
+        # 可能会有周五盘后发布财报的情况，比如clsk，使用前值填充
+        merged_df['close'] = merged_df['close'].ffill()
+        
+        if enable_logging:
+            logger.info(f"After ffill:\n{merged_df.head()}")
+        
+        # 删除掉预估数据：删除date日期大于今天的行
+        merged_df['date'] = pd.to_datetime(merged_df['date'])
+        merged_df = merged_df[merged_df['date'] <= pd.Timestamp.now()]
+        
+        if enable_logging:
+            logger.info(f"After filtering future dates:\n{merged_df.head()}")
+        
+        # 计算is_fiscal=True时的close变动比率，考虑盘后发布财报的情况
+        merged_df['fiscal_chg'] = merged_df['close'].pct_change()
+        
+        if enable_logging:
+            logger.info(f"After calculating fiscal_chg:\n{merged_df.head()}")
+        
+        # 只保留 is_fiscal 为 True 且不为 NA 的行
+        if 'is_fiscal' in merged_df.columns:
+            merged_df = merged_df[merged_df['is_fiscal'].notnull() & merged_df['is_fiscal']]
+        else:
+            logger.warning("is_fiscal column not found")
+            return pd.DataFrame()
+            
+        if enable_logging:
+            logger.info(f"Final data:\n{merged_df}")
+        
+        # 后续根据导出情况，可以简化列
+        return merged_df

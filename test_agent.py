@@ -1,92 +1,77 @@
-#!/usr/bin/env python3
-"""
-Test script for the Financial AI Agent.
-This script demonstrates how to use the fin_ai_agent to query financial data.
-
-Examples:
-    # Query stock data
-    python test_agent.py "帮我查一下苹果公司（AAPL）最近5天的日K线数据"
-    
-    # Query financial data
-    python test_agent.py "特斯拉（TSLA）最新的年度资产负债表是什么？"
-    
-    # Interactive chat mode
-    python test_agent.py --chat
-"""
-
+# -*- coding: utf-8 -*-
+from pathlib import Path
 import os
 import sys
-import argparse
 from dotenv import load_dotenv
 
-# Add project root to path
-project_root = os.path.abspath(os.path.dirname(__file__))
-sys.path.insert(0, project_root)
+# 添加项目根目录到Python路径
+sys.path.insert(0, str(Path(__file__).parent))
 
-from fmpxx import create_agent
+from agno.agent import Agent
+from agno.tools.python import PythonTools
+from fmpxx import FMPClient
 
+# 加载环境变量
+load_dotenv()
 
-def main():
-    """Main test function."""
-    parser = argparse.ArgumentParser(description="Test Financial AI Agent")
-    parser.add_argument("query", nargs="?", help="Question to ask the agent")
-    parser.add_argument("--chat", action="store_true", help="Start interactive chat mode")
-    parser.add_argument("--api-key", help="FMP API key (overrides environment)")
-    parser.add_argument("--gemini-key", help="Gemini API key (overrides environment)")
+def create_performance_visualization():
+    """创建股票业绩可视化脚本"""
     
-    args = parser.parse_args()
-    
-    # Load environment variables
-    load_dotenv()
-    
-    # Get API keys
-    api_key = args.api_key or os.getenv("FMP_KEY")
-    gemini_key = args.gemini_key or os.getenv("GEMINI_API_KEY")
-    
+    # 获取API密钥
+    api_key = os.getenv('FMP_KEY')
     if not api_key:
-        print("Error: FMP API key is required. Set FMP_KEY environment variable or use --api-key")
-        sys.exit(1)
+        raise ValueError("请设置FMP_KEY环境变量")
     
-    if not gemini_key:
-        print("Error: Gemini API key is required. Set GEMINI_API_KEY environment variable or use --gemini-key")
-        sys.exit(1)
+    # 创建FMP客户端
+    client = FMPClient(api_key=api_key, output_format='pandas')
     
-    # Create agent
-    print("🤖 Initializing Financial AI Agent...")
-    agent = create_agent(api_key=api_key, gemini_api_key=gemini_key)
+    # 获取AAPL的业绩数据
+    symbol = "AAPL"
+    performance_data = client.financials.get_stock_performance(symbol, limit=8, period='quarter')
     
-    if args.chat:
-        # Interactive mode
-        print("Starting interactive chat...")
-        agent.chat()
-    elif args.query:
-        # Single query mode
-        print(f"📝 Query: {args.query}")
-        print("-" * 50)
-        response = agent.query(args.query)
-        print(response)
-    else:
-        # Demo mode
-        print("🎯 Running demo queries...")
-        
-        demo_queries = [
-            "帮我查一下苹果公司（AAPL）最近5天的日K线数据",
-            "特斯拉（TSLA）最新的年度资产负债表是什么？",
-            "微软（MSFT）最新的季度利润表数据",
-            "谷歌（GOOGL）的实时股价是多少？",
-            "搜索一下包含'半导体'的公司"
-        ]
-        
-        for query in demo_queries:
-            print(f"\n📝 Query: {query}")
-            print("-" * 50)
-            try:
-                response = agent.query(query)
-                print(response)
-            except Exception as e:
-                print(f"❌ Error: {e}")
-            print("\n" + "=" * 70 + "\n")
-
+    if performance_data is None or performance_data.empty:
+        raise ValueError(f"无法获取{symbol}的业绩数据")
+    
+    # 准备数据用于可视化
+    data_for_plot = performance_data[['period_date', 'revenue']].copy()
+    data_for_plot['period_date'] = data_for_plot['period_date'].dt.strftime('%Y-%m')
+    
+    # 创建Python代理
+    agent = Agent(
+        tools=[PythonTools(base_dir=Path("tmp/python"))], 
+        show_tool_calls=True
+    )
+    
+    # 生成绘图脚本
+    prompt = f"""
+    请使用以下数据创建一个收入柱状图：
+    
+    数据：
+    {data_for_plot.to_string(index=False)}
+    
+    要求：
+    1. 使用matplotlib创建柱状图
+    2. x轴显示period_date（格式：YYYY-MM）
+    3. y轴显示revenue（单位：十亿美元）
+    4. 标题："{symbol} 季度收入趋势"
+    5. 旋转x轴标签45度以便阅读
+    6. 添加网格线提高可读性
+    7. 将revenue除以1e9转换为十亿美元单位
+    8. 保存图表为png文件：{symbol}_revenue_chart.png
+    9. 显示图表
+    
+    请提供完整的Python代码并执行。
+    """
+    
+    print("正在生成收入柱状图...")
+    agent.print_response(prompt)
+    
+    return data_for_plot
 
 if __name__ == "__main__":
-    main()
+    try:
+        data = create_performance_visualization()
+        print(f"数据获取成功，共{len(data)}条记录")
+        print("图表已生成并保存")
+    except Exception as e:
+        print(f"错误：{e}")
