@@ -8,7 +8,7 @@ class Stocks(_BaseClient):
     def __init__(self, api_key: str, timeout: int = 10, output_format: str = 'json'):
         super().__init__(api_key, timeout, output_format)
 
-    def historical_price_full(self, symbol: str, series_type: str = None, start: str = None, end: str = None, period: int = None):
+    def historical_price_full(self, symbol: str, series_type: str | None = None, start: str | None = None, end: str | None = None, period: int | None = None):
         """
         Get full historical daily prices for a given symbol.
 
@@ -41,7 +41,7 @@ class Stocks(_BaseClient):
         else:
             df = self._process_response(data)
 
-        if not df.empty:
+        if isinstance(df, pd.DataFrame) and not df.empty:
             # Ensure 'date' column is datetime for proper sorting and deduplication
             if 'date' in df.columns:
                 df['date'] = pd.to_datetime(df['date'])
@@ -60,7 +60,7 @@ class Stocks(_BaseClient):
 
         return df
 
-    def daily_prices(self, symbol: str, start: str = None, end: str = None, period: int = None):
+    def daily_prices(self, symbol: str, start: str | None = None, end: str | None = None, period: int | None = None):
         """
         Get historical daily prices for a given symbol (line series).
 
@@ -100,7 +100,7 @@ class Stocks(_BaseClient):
         data = self._make_request(endpoint)
         return self._process_response(data)
 
-    def search(self, query: str, exchange: str = None, limit: int = 10):
+    def search(self, query: str, exchange: str | None = None, limit: int = 10):
         """
         Search for companies by name or symbol.
 

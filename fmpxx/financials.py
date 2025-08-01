@@ -1,14 +1,9 @@
 from .base import _BaseClient
+from .stocks import Stocks
 import pandas as pd
 import logging
-from typing import Any, Dict, Optional, Union
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
 
 class Financials(_BaseClient):
     """Client for FMP Company Fundamentals API endpoints."""
@@ -16,8 +11,12 @@ class Financials(_BaseClient):
     def __init__(self, api_key: str, timeout: int = 10, output_format: str = 'json', debug: bool = False):
         super().__init__(api_key, timeout, output_format)
         self.debug = debug
-        if debug:
+        if debug and not logger.handlers:
             logger.setLevel(logging.DEBUG)
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
 
     def get_financials(
         self,
@@ -25,7 +24,7 @@ class Financials(_BaseClient):
         statement: str,
         limit: int = 10,
         period: str = 'quarter',
-        **query_params: Dict[str, Any]
+        **query_params: dict[str, object]
     ) -> pd.DataFrame:
         """
         Fetch specific type of financial statement data.
@@ -58,7 +57,7 @@ class Financials(_BaseClient):
         df = self._process_response(data)
         return self._ensure_dataframe(df)
 
-    def get_merged_financials(self, symbol: str, limit: int = 40, period: str = 'quarter') -> Optional[pd.DataFrame]:
+    def get_merged_financials(self, symbol: str, limit: int = 40, period: str = 'quarter') -> pd.DataFrame | None:
         """
         Merge cash flow, income statement, and balance sheet financial statements.
 
@@ -136,7 +135,7 @@ class Financials(_BaseClient):
             .fillna(value=0)
         )
 
-    def get_stock_performance(self, symbol: str, limit: int = 8, period: str = 'quarter') -> Optional[pd.DataFrame]:
+    def get_stock_performance(self, symbol: str, limit: int = 8, period: str = 'quarter') -> pd.DataFrame | None:
         """
         获取股票全面业绩指标，使用实际可用的财务数据列。
         
@@ -246,8 +245,6 @@ class Financials(_BaseClient):
         Returns:
             pd.DataFrame: 包含PE计算结果的DataFrame
         """
-        from .stocks import Stocks
-        
         # 获取历史盈利数据
         eps_df = self.get_earnings_his(symbol, period)
         if eps_df.empty:
@@ -304,6 +301,7 @@ class Financials(_BaseClient):
         
         return selected
 
+
     def get_fiscal_close_chg(self, symbol: str, period: int = 3, enable_logging: bool = False) -> pd.DataFrame:
         """
         分析发布财报后close的变动
@@ -316,8 +314,6 @@ class Financials(_BaseClient):
         Returns:
             pd.DataFrame: 包含财报发布后收盘价变动的DataFrame
         """
-        from .stocks import Stocks
-        
         # 获取历史价格数据
         stocks_client = Stocks(self.api_key, self.timeout, self.output_format)
         his_df = stocks_client.historical_price_full(symbol, period=period)
@@ -379,3 +375,79 @@ class Financials(_BaseClient):
         
         # 后续根据导出情况，可以简化列
         return merged_df
+
+    def revenue_by_segment(self, symbol: str, structure: str = 'product', period: str = 'quarter', limit: int = 10, output_format: str = 'json') -> dict | pd.DataFrame:
+        """
+        Fetch revenue breakdown by segment (geographic or product segments).
+        
+        Args:
+            symbol: Stock ticker symbol
+            structure: Segment type - 'geographic' for geographic segments, 'product' for product segments
+            period: Reporting period ('annual' or 'quarter')
+            limit: Number of records to return
+            output_format: Output format - 'json' or 'pandas'. If None, uses instance default
+            
+        Returns:
+            dict | pd.DataFrame: Revenue data segmented by specified structure
+            
+        Raises:
+            ValueError: If structure parameter is invalid
+        """
+        if structure not in ['geographic', 'product']:
+            raise ValueError(f"Invalid structure type: {structure}. Use 'geographic' or 'product'")
+            
+        # Use specified output format
+        fmt = output_format
+            
+        # Use v4 API endpoint for revenue segmentation
+        endpoint = f"revenue-{structure}-segmentation"
+        params = {"symbol": symbol, "structure": "flat", "period": period, "limit": limit}
+        
+        # Temporarily override base URL for v4 endpoint
+        original_base_url = self.BASE_URL
+        self.BASE_URL = "https://financialmodelingprep.com/api/v4/"
+        try:
+            data = self._make_request(endpoint, params)
+        finally:
+            # Restore original base URL
+            self.BASE_URL = original_base_url
+            
+        # Ensure we respect the limit even if API returns more data
+        if isinstance(data, list) and len(data) > limit:
+            data = data[:limit]
+        
+        # Handle special conversion for segment data structure
+        if fmt == 'pandas':
+            return self._convert_segment_data_to_df(data)
+        else:
+            return data
+
+    def _convert_segment_data_to_df(self, data: list | dict) -> pd.DataFrame:
+        """
+        Convert nested segment revenue data to DataFrame format.
+        
+        Args:
+            data: List of dictionaries with date as key and segment data as value
+            
+        Returns:
+            pd.DataFrame: DataFrame with date as index and segments as columns
+        """
+        if not data:
+            return pd.DataFrame()
+            
+        # Ensure data is a list
+        if isinstance(data, dict):
+            data = [data]
+        
+        # Convert to DataFrame directly
+        rows = []
+        for item in data:
+            for date_str, segments in item.items():
+                row = {'date': date_str}
+                row.update(segments)
+                rows.append(row)
+        
+        df = pd.DataFrame(rows)
+        df['date'] = pd.to_datetime(df['date'])
+        
+        return df.sort_values('date', ascending=False).reset_index(drop=True)

@@ -1,6 +1,23 @@
 ## Changelog
 
-### 0.3.3
+### [0.3.4] - 2025-08-01
+- 🆕 **新增收入细分数据功能**
+  - 新增 `Financials.revenue_by_segment()` 方法，支持按地理区域或产品类别获取收入细分数据
+  - 支持灵活的输出格式：`json` 或 `pandas` DataFrame
+  - 优化数据结构：返回 DataFrame 格式时，日期为行，业务段为列（Mac、Service、iPhone 等）
+- 🔧 **API 增强**
+  - 使用 FMP v4 API 端点获取更高质量的收入细分数据
+  - 新增 `_convert_segment_data_to_df()` 辅助方法处理嵌套 JSON 转换
+- 📊 **使用方法**
+  ```python
+  # JSON 格式（默认）
+  json_data = client.financials.revenue_by_segment('AAPL')
+  
+  # DataFrame 格式
+  df = client.financials.revenue_by_segment('AAPL', output_format='pandas')
+  ```
+
+### [0.3.3] - 2025-07-31
 - 🧹 **代码清理和重构**
   - 移除已废弃的 AI Agent 功能（基于 Agno 框架的交互式代理）
   - 优化测试文件结构，将数据文件移至 `tests/test_data/` 目录
@@ -12,7 +29,7 @@
   - 保持 AI Agent 功能完整，支持 agno 框架
   - 更新测试文件路径配置
 
-### 0.3.2
+### [0.3.2] - 2025-07-31
 - 🆕 **新增股票业绩指标功能**
   - 新增 `Financials.get_stock_performance()` 方法，提供关键业绩指标
   - 包含营收(revenue)及增长率、毛利率(grossProfitRatio)、EPS及增长率
@@ -24,7 +41,7 @@
   - 新增 `calendarYear` 和 `period` 列，便于时间序列分析
   - 按日期降序排列，最新季度在前
 
-### 0.3.1
+### [0.3.1] - 2025-07-30
 - 🔄 **Migrated from phidata to Agno framework**
   - Updated all imports from `phi` to `agno`
   - Replaced `phidata` dependency with `agno>=1.0.0`
@@ -42,11 +59,11 @@
 - 🔧 **Dependencies update**: Added `agno`, `google-genai`, `pydantic`
 - 📝 **Updated documentation** with AI Agent usage examples
 
-### 0.2.8
+### [0.2.8] - 2025-07-29
 - Added interactive AI Agent simulator (`fmpxx/agent/interactive_agent.py`) to demonstrate natural language interaction with the library.
 - Updated `README.md` with instructions for the AI Agent simulator.
 
-### 0.2.7
+### [0.2.7] - 2025-07-28
 - Refactored `financials.py`:
     - Consolidated specific financial statement methods (income, balance, cash flow, ratios, enterprise value, key metrics, growth metrics) into a single, more flexible `get_financials` function.
     - Optimized `get_financials` to leverage `_process_response` for consistent Pandas DataFrame conversion and column cleaning.

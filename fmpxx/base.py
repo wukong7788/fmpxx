@@ -14,7 +14,7 @@ class _BaseClient:
         self.session = requests.Session()
         self.session.params.update({'apikey': self.api_key})
 
-    def _make_request(self, endpoint: str, params: dict = None):
+    def _make_request(self, endpoint: str, params: dict | None = None) -> dict:
         url = f"{self.BASE_URL}{endpoint}"
         full_params = params.copy() if params else {}
 
@@ -44,7 +44,7 @@ class _BaseClient:
 
         return data
 
-    def _process_response(self, data):
+    def _process_response(self, data) -> list | pd.DataFrame:
         if self.output_format == 'pandas' and isinstance(data, list):
             if not data:
                 return pd.DataFrame() # Return empty DataFrame for empty list
