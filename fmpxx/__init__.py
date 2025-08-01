@@ -1,7 +1,6 @@
 from .base import _BaseClient
 from .financials import Financials
 from .stocks import Stocks
-from .agent.agent import FinAIAgent, create_agent
 
 class FMPClient(_BaseClient):
     """Main client for interacting with the Financial Modeling Prep (FMP) API.
