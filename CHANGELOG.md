@@ -1,5 +1,21 @@
 ## Changelog
 
+### [0.3.5] - 2025-08-01
+- 🧹 **彻底清理 AI Agent 功能**
+  - 完全移除 `fmpxx/agent` 模块和相关代码
+  - 删除 `test_agent.py` 测试文件
+  - 从 `pyproject.toml` 中移除 AI 相关依赖：
+    - `agno>=1.7.5` (AI 代理框架)
+    - `pydantic>=2.0.0` (数据验证)
+    - `google-genai>=1.26.0` (Google Gemini API)
+    - `plotly>=6.2.0` (图表绘制)
+    - `yfinance>=0.2.65` (Yahoo Finance 数据)
+  - 简化依赖，专注核心金融数据功能
+- 📦 **项目精简**
+  - 仅保留核心依赖：pandas、requests、python-dotenv、retry
+  - 减小包体积，提高安装速度
+  - 保持所有基础金融数据功能完整
+
 ### [0.3.4] - 2025-08-01
 - 🆕 **新增收入细分数据功能**
   - 新增 `Financials.revenue_by_segment()` 方法，支持按地理区域或产品类别获取收入细分数据
