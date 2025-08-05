@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 class Stocks(_BaseClient):
     """Client for FMP Stock API endpoints."""
 
-    def __init__(self, api_key: str, timeout: int = 10, output_format: str = 'json'):
+    def __init__(self, api_key: str|None, timeout: int = 10, output_format: str = 'json'):
         super().__init__(api_key, timeout, output_format)
 
     def historical_price_full(self, symbol: str, series_type: str | None = None, start: str | None = None, end: str | None = None, period: int | None = None):

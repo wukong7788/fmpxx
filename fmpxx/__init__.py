@@ -9,7 +9,7 @@ class FMPClient(_BaseClient):
     various financial data endpoints offered by FMP.
 
     Args:
-        api_key (str): Your FMP API key.
+        api_key (str | None): Your FMP API key.
         timeout (int, optional): Request timeout in seconds. Defaults to 10.
         output_format (str, optional): Desired output format ('json' or 'pandas').
                                        Defaults to 'json'.
@@ -19,7 +19,7 @@ class FMPClient(_BaseClient):
         stocks (Stocks): Access to stock market data.
     """
 
-    def __init__(self, api_key: str, timeout: int = 10, output_format: str = 'json'):
+    def __init__(self, api_key: str | None, timeout: int = 10, output_format: str = 'json'):
         super().__init__(api_key, timeout, output_format)
 
         # Initialize categorized API modules

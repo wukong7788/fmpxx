@@ -2,6 +2,9 @@ import sys
 import os
 import dotenv
 import pandas as pd
+# 然后再导入你的模块
+from fmpxx import FMPClient
+from fmpxx.exceptions import FMPAPIError, InvalidAPIKeyError, SymbolNotFoundError, RateLimitExceededError, FMPConnectionError
 
 # Set pandas display options for better output in console
 # 不换行显示配置
@@ -16,9 +19,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 # 将项目根目录添加到 Python 模块搜索路径
 sys.path.append(project_root)
 
-# 然后再导入你的模块
-from fmpxx import FMPClient
-from fmpxx.exceptions import FMPAPIError, InvalidAPIKeyError, SymbolNotFoundError, RateLimitExceededError, FMPConnectionError
+
 
 dotenv.load_dotenv()
 

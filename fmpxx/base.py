@@ -5,14 +5,14 @@ from .exceptions import FMPAPIError, InvalidAPIKeyError, SymbolNotFoundError, Ra
 class _BaseClient:
     BASE_URL = "https://financialmodelingprep.com/api/v3/"
 
-    def __init__(self, api_key: str, timeout: int = 10, output_format: str = 'json'):
+    def __init__(self, api_key: str|None, timeout: int = 10, output_format: str = 'json'):
         if not api_key:
             raise ValueError("API key is required.")
         self.api_key = api_key
         self.timeout = timeout
         self.output_format = output_format
         self.session = requests.Session()
-        self.session.params.update({'apikey': self.api_key})
+        self.session.params = {'apikey': self.api_key}
 
     def _make_request(self, endpoint: str, params: dict | None = None) -> dict:
         url = f"{self.BASE_URL}{endpoint}"
@@ -68,5 +68,6 @@ class _BaseClient:
     def _standardize_date_format(self, df: pd.DataFrame, date_col: str = 'date') -> pd.DataFrame:
         """Standardize date format to YYYY-MM-DD"""
         if date_col in df.columns:
-            df[date_col] = pd.to_datetime(df[date_col]).dt.strftime('%Y-%m-%d')
+            df[date_col] = pd.to_datetime(df[date_col])
+            df[date_col] = df[date_col].dt.strftime('%Y-%m-%d')
         return df

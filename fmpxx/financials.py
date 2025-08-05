@@ -3,12 +3,13 @@ from .stocks import Stocks
 import pandas as pd
 import logging
 
+
 logger = logging.getLogger(__name__)
 
 class Financials(_BaseClient):
     """Client for FMP Company Fundamentals API endpoints."""
 
-    def __init__(self, api_key: str, timeout: int = 10, output_format: str = 'json', debug: bool = False):
+    def __init__(self, api_key: str|None, timeout: int = 10, output_format: str = 'json', debug: bool = False):
         super().__init__(api_key, timeout, output_format)
         self.debug = debug
         if debug and not logger.handlers:
@@ -74,29 +75,29 @@ class Financials(_BaseClient):
             - Handles special stock data anomalies
             - Checks data continuity and completeness
         """
-        # 获取三张财务报表
+        # Get three financial statements
         income = self.get_financials(symbol, statement="income", period=period, limit=limit)
         balance = self.get_financials(symbol, statement="balance", period=period, limit=limit)
         cash = self.get_financials(symbol, statement="cash", period=period, limit=limit)
 
-        # 检查数据完整性
+        # Check data completeness
         if income.empty or balance.empty or cash.empty:
-            logger.warning(f"{symbol}的财务报表数据不完整")
+            logger.warning(f"{symbol}'s financial statement data is incomplete")
             return None
 
-        # 定义合并键
+        # Define merge keys
         on_list = [
             "cik", "fillingDate", "date", "symbol", 
             "period", "calendarYear", "reportedCurrency"
         ]
 
-        # 合并财务报表
+        # Merge financial statements
         merged_df = pd.merge(
             pd.merge(income, balance, how="inner", on=on_list),
             cash, how="inner", on=on_list
         )
 
-        # 数据清洗和转换
+        # Data cleaning and transformation
         merged_df = (
             merged_df.rename(columns={
                 "date": "period_date",
@@ -108,7 +109,7 @@ class Financials(_BaseClient):
             .assign(period_date=lambda x: pd.to_datetime(x["period_date"]))
         )
 
-        # 处理特殊股票
+        # Handle special stocks
         special_symbols = [
             "ADT", "ALTR", "ARNC", "BEAM", "CEG", "CSC", "CTLT", "FTV", 
             "HLT", "HPE", "LDOS", "LW", "MMI", "MRNA", "OTIS", "PLL", 
@@ -118,18 +119,18 @@ class Financials(_BaseClient):
         if symbol in special_symbols:
             merged_df = merged_df.drop([0]).reset_index(drop=True)
 
-        # 检查数据连续性
+        # Check data continuity
         merged_df["verify"] = merged_df["period_date"].diff()
         if symbol == "CSC":
             return None
 
-        # 验证数据周期
+        # Validate reporting period
         for days in merged_df["verify"].tolist()[1:]:
-            if days.days > 150:  # 正常间隔约91天
-                logger.warning(f"{symbol}财报异常，数据周期不全")
+            if days.days > 150:  # Normal interval is about 91 days
+                logger.warning(f"{symbol} abnormal reporting period, incomplete data")
                 return None
 
-        # 最终清理
+        # Final cleanup
         return (
             merged_df.drop(columns=["verify"])
             .fillna(value=0)
@@ -137,63 +138,64 @@ class Financials(_BaseClient):
 
     def get_stock_performance(self, symbol: str, limit: int = 8, period: str = 'quarter') -> pd.DataFrame | None:
         """
-        获取股票全面业绩指标，使用实际可用的财务数据列。
+        Get comprehensive stock performance metrics using actual available financial data columns.
         
         Args:
-            symbol (str): 股票代码
-            limit (int): 返回的季度数，默认8个季度
-            period (str): 报表周期，'annual' 或 'quarter'
+            symbol (str): Stock ticker symbol
+            limit (int): Number of quarters to return, default 8 quarters
+            period (str): Reporting period, 'annual' or 'quarter'
             
         Returns:
-            Optional[pd.DataFrame]: 包含全面业绩指标的DataFrame，如果数据无效则返回None
+            Optional[pd.DataFrame]: DataFrame containing comprehensive performance metrics, returns None if data invalid
         """
-        # 获取合并财务报表
+        # Get merged financial statements
         merged_df = self.get_merged_financials(symbol, limit=limit, period=period)
         if merged_df is None or merged_df.empty:
             return None
             
-        # 基于实际AAPL.csv可用的列
+        # Based on actual available columns from AAPL.csv
         performance_df = merged_df[[
             'period_date', 'date', 'symbol', 'calendarYear', 'period',
             'revenue', 'grossProfitRatio', 'epsdiluted', 'operatingIncomeRatio', 
             'operatingIncome', 'freeCashFlow', 'totalDebt', 'totalAssets'
         ]].copy()
         
-        # 计算质量指标
+        # Calculate quality metrics
         performance_df['freeCashFlowMargin'] = performance_df['freeCashFlow'] / performance_df['revenue']
         performance_df['debtToAssetRatio'] = performance_df['totalDebt'] / performance_df['totalAssets']
         
-        # 计算同比增长率（按年度和季度匹配）
-        performance_df['year'] = pd.to_datetime(performance_df['period_date']).dt.year
-        performance_df['quarter'] = pd.to_datetime(performance_df['period_date']).dt.quarter
+        # Calculate year-over-year growth rates (matched by year and quarter)
+        performance_df['period_date'] = pd.to_datetime(performance_df['period_date'])
+        performance_df['year'] = performance_df['period_date'].dt.year
+        performance_df['quarter'] = performance_df['period_date'].dt.quarter
         
-        # 按股票代码、年份、季度排序，确保顺序正确
-        performance_df = performance_df.sort_values(['symbol', 'year', 'quarter'])
+        # Sort by stock symbol, year, quarter to ensure correct order
+        performance_df = performance_df.sort_values(by=['symbol', 'year', 'quarter'])
         
-        # 计算同比增长率（匹配相同季度，不同年份）
+        # Calculate year-over-year growth rates (matching same quarter, different year)
         performance_df['revenue_growth_rate'] = performance_df.groupby(['symbol', 'quarter'])['revenue'].pct_change()
         performance_df['operatingIncome_growth_rate'] = performance_df.groupby(['symbol', 'quarter'])['operatingIncome'].pct_change()
         performance_df['eps_diluted_growth_rate'] = performance_df.groupby(['symbol', 'quarter'])['epsdiluted'].pct_change()
         
-        # 按日期排序（最新的在前）
+        # Sort by date (latest first)
         performance_df = performance_df.sort_values('date', ascending=False)
         
-        # 选择最终需要的列
+        # Select final required columns
         result_df = performance_df[[
             'period_date', 'date', 'symbol', 'calendarYear', 'period',
-            # 质量指标
+            # Quality metrics
             'grossProfitRatio',
             'operatingIncomeRatio',
             'freeCashFlowMargin',
             'debtToAssetRatio',
-            # 成长指标
+            # Growth metrics
             'revenue', 'revenue_growth_rate',
             'operatingIncome', 'operatingIncome_growth_rate',
-            # 估值指标
+            # Valuation metrics
             'epsdiluted', 'eps_diluted_growth_rate'
         ]].copy()
         
-        # 数据清洗
+        # Data cleaning
         return result_df.fillna(0)
 
     def get_earnings_his(self, symbol: str, period: int = 3) -> pd.DataFrame:
@@ -234,16 +236,16 @@ class Financials(_BaseClient):
 
     def merge_eps_his(self, symbol: str, period: int = 3, enable_logging: bool = True) -> pd.DataFrame:
         """
-        生成pe和his的时序数据。
-        注意：如果发布财报后使用需要等开盘数据，要不然没有close，最新的epsttm会被删除
+        Generate PE and historical time series data.
+        Note: If used after earnings release, need to wait for market open data, otherwise no close, latest epsttm will be deleted
         
         Args:
-            symbol (str): 股票代码
-            period (int): 获取历史数据的年数
-            enable_logging (bool): 是否启用日志记录，默认为True
+            symbol (str): Stock ticker symbol
+            period (int): Number of years to retrieve historical data
+            enable_logging (bool): Whether to enable logging, defaults to True
             
         Returns:
-            pd.DataFrame: 包含PE计算结果的DataFrame
+            pd.DataFrame: DataFrame containing PE calculation results
         """
         # 获取历史盈利数据
         eps_df = self.get_earnings_his(symbol, period)
@@ -274,8 +276,10 @@ class Financials(_BaseClient):
         his_df = his_df[['date', 'close']].copy()
 
         # 确保日期格式一致
-        eps_df = self._standardize_date_format(eps_df)
-        his_df = self._standardize_date_format(his_df)
+        eps_df_temp = pd.DataFrame(eps_df)
+        eps_df = self._standardize_date_format(df=eps_df_temp)
+        his_df_temp = pd.DataFrame(his_df)
+        his_df = self._standardize_date_format(df=his_df_temp)
         
         # 合并数据
         merged_df = pd.merge(eps_df, his_df, on='date', how='outer', sort=True)
