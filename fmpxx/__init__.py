@@ -11,20 +11,18 @@ class FMPClient(_BaseClient):
     Args:
         api_key (str | None): Your FMP API key.
         timeout (int, optional): Request timeout in seconds. Defaults to 10.
-        output_format (str, optional): Desired output format ('json' or 'pandas').
-                                       Defaults to 'json'.
 
     Attributes:
         financials (Financials): Access to company fundamental data.
         stocks (Stocks): Access to stock market data.
     """
 
-    def __init__(self, api_key: str | None, timeout: int = 10, output_format: str = 'json'):
-        super().__init__(api_key, timeout, output_format)
+    def __init__(self, api_key: str | None, timeout: int = 10):
+        super().__init__(api_key, timeout)
 
         # Initialize categorized API modules
-        self.financials = Financials(api_key, timeout, output_format)
-        self.stocks = Stocks(api_key, timeout, output_format)
+        self.financials = Financials(api_key, timeout)
+        self.stocks = Stocks(api_key, timeout)
 
     # You can add more categorized properties here as you implement more modules
     # For example:

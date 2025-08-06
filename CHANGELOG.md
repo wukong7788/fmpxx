@@ -1,5 +1,23 @@
 ## Changelog
 
+### [0.3.8] - 2025-08-06
+- 🔄 **API 重大改进：统一返回格式为 Pandas DataFrame**
+  - 移除 `output_format` 参数，现在所有 API 调用默认返回 Pandas DataFrame
+  - 新增 `convert_to_json()` 方法用于将 DataFrame 转换为 JSON 格式
+  - 简化 API 接口，提高一致性和易用性
+- 📊 **数据处理和性能优化**
+  - 优化 `get_stock_performance()` 方法：改进年度同比增长率计算逻辑
+  - 修复收入细分数据的时间排序问题，确保时间序列正确性
+  - 增强数据清洗和格式化，数值自动四舍五入到2位小数
+- 🧪 **测试和开发体验提升**
+  - 添加 pytest 作为开发依赖
+  - 优化测试文件结构，改进路径处理
+  - 移除冗余的测试文件 `test_revenue_segment.py`
+- 🛠️ **代码质量和维护**
+  - 修复 Pandas 方法弃用警告（`ffill` -> `forward_fill`, `bfill` -> `backfill`）
+  - 增强类型注解，明确返回类型为 DataFrame
+  - 改进错误处理和空值处理
+
 ### [0.3.7] - 2025-08-05
 - 🧹 **代码清理和国际化**
   - 移除已废弃的 `fmpxx/updatedb/` 模块（数据库相关功能）

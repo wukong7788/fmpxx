@@ -32,7 +32,7 @@ from fmpxx import FMPClient
 
 # 初始化客户端
 api_key = "your_api_key"
-client = FMPClient(api_key, output_format='pandas')
+client = FMPClient(api_key)
 
 # 获取公司基本面数据
 print("--- Financials ---")
@@ -80,7 +80,6 @@ print("Search Results (first 2 rows):\n", search_results.head())
 #### 初始化参数：
 - `api_key` (str): 您的 FMP API 密钥。
 - `timeout` (int, optional): 请求超时时间（秒）。默认为 10。
-- `output_format` (str, optional): 期望的输出格式（`'json'` 或 `'pandas'`）。默认为 `'json'`。
 
 #### 属性：
 - `financials` (Financials): 访问公司基本面数据，如损益表、资产负债表、现金流量表、财务比率等。
@@ -94,22 +93,20 @@ print("Search Results (first 2 rows):\n", search_results.head())
 - `get_financials(symbol, statement, limit=10, period='quarter', **query_params)`: 获取指定类型的财务报表数据（如收入报表、资产负债表、现金流量表）。
 - `get_merged_financials(symbol, limit=40, period='quarter')`: 合并现金流量表、损益表和资产负债表三张财务报表。
 - `get_stock_performance(symbol, limit=8, period='quarter')`: 获取股票关键业绩指标，包括营收增长率、毛利率、EPS增长率、运营利润率和自由现金流利润率。
-- `revenue_by_segment(symbol, structure='product', period='quarter', limit=10, output_format='json')`: 获取收入细分数据，可按产品或地理区域分类。
+- `revenue_by_segment(symbol, structure='product', period='quarter', limit=10)`: 获取收入细分数据，可按产品或地理区域分类。
 
 #### 收入细分数据使用示例
 ```python
-# 获取苹果公司按产品分类的收入数据（JSON格式）
+# 获取苹果公司按产品分类的收入数据
 revenue_data = client.financials.revenue_by_segment('AAPL', structure='product')
 
-# 获取按地理区域分类的收入数据（DataFrame格式）
-geo_revenue = client.financials.revenue_by_segment('AAPL', 
-                                                  structure='geographic', 
-                                                  output_format='pandas')
+# 获取按地理区域分类的收入数据
+geo_revenue = client.financials.revenue_by_segment('AAPL', structure='geographic')
 print(geo_revenue.head())
-# 输出格式：
-#         date      美洲      欧洲      大中华区    日本      亚太其他
-# 2025-03-29  36.36B    22.45B    18.59B    5.89B    6.12B
-# 2024-12-28  42.15B    28.89B    21.52B    7.23B    7.01B
+
+# 转换为 JSON 格式
+json_data = client.convert_to_json(geo_revenue)
+print(json_data)
 ```
 
 #### 自由现金流利润率计算
@@ -129,7 +126,7 @@ print(geo_revenue.head())
 - `daily_prices(symbol, start=None, end=None, period=None)`: 获取股票的历史日价格（线形图）。
 - `stock_list()`: 获取所有可用股票的列表。
 - `quote(symbol)`: 获取给定股票的实时报价。
-- `search(query, exchange=None, limit=10)`: 按名称或符号搜索公司。
+- `search(query, limit=10)`: 按名称或符号搜索公司。
 
 ## 贡献指南
 

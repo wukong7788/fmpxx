@@ -2,6 +2,10 @@ import sys
 import os
 import dotenv
 import pandas as pd
+# 获取项目根目录的绝对路径
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# 将项目根目录添加到 Python 模块搜索路径
+sys.path.append(project_root)
 # 然后再导入你的模块
 from fmpxx import FMPClient
 from fmpxx.exceptions import FMPAPIError, InvalidAPIKeyError, SymbolNotFoundError, RateLimitExceededError, FMPConnectionError
@@ -14,10 +18,7 @@ pd.set_option('display.max_colwidth', 30)      # 限制单列宽度
 pd.set_option('display.expand_frame_repr', False)  # 禁用折叠
 pd.set_option('display.max_rows', None) 
 
-# 获取项目根目录的绝对路径
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-# 将项目根目录添加到 Python 模块搜索路径
-sys.path.append(project_root)
+
 
 
 
@@ -30,7 +31,7 @@ if not API_Key:
     print("Error: FMP_KEY environment variable not set. Please set it in your .env file or environment.")
     sys.exit(1)
 
-client = FMPClient(api_key=API_Key, output_format='pandas')
+client = FMPClient(api_key=API_Key)
 
 # print("\n--- Testing Financials ---")
 
@@ -45,16 +46,18 @@ client = FMPClient(api_key=API_Key, output_format='pandas')
 #     print("Failed to get merged financials")
 # # print(client.stocks.historical_price_full(symbol=ticker,period=1))
 
-# print("\n--- Testing Stock Performance ---")
-# performance = client.financials.get_stock_performance(symbol=ticker, limit=8)
-# if performance is not None:
-#     print("Stock Performance Data:")
-#     print(performance)
-#     print(f"Columns: {list(performance.columns)}")
-#     performance.to_csv(f'tests/performance_{ticker}.csv')
-#     print(f"Performance data saved to tests/performance_{ticker}.csv")
-# else:
-#     print("Failed to get stock performance data")
+print("\n--- Testing Stock Performance ---")
+performance = client.financials.get_stock_performance(symbol=ticker, limit=12)
+if performance is not None:
+    print("Stock Performance Data:")
+    print(performance)
+    print(f"Columns: {list(performance.columns)}")
+    print("\n---json foramt---")
+    print(client.convert_to_json(performance))
+    # performance.to_csv(f'tests/performance_{ticker}.csv')
+    # print(f"Performance data saved to tests/performance_{ticker}.csv")
+else:
+    print("Failed to get stock performance data")
 
 # print("\n--- Testing Historical Earnings Calendar ---")
 # earnings = client.financials.get_earnings_his(symbol=ticker, period=2)
@@ -90,5 +93,7 @@ client = FMPClient(api_key=API_Key, output_format='pandas')
 #     print("Failed to get fiscal close change data")
 
 
-revenue_seg = client.financials.revenue_by_segment(symbol=ticker,output_format='pandas')
+revenue_seg = client.financials.revenue_by_segment(symbol=ticker,output_format='raw')
+print("\n---json foramt---")
+
 print(revenue_seg)

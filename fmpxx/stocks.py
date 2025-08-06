@@ -5,10 +5,10 @@ from datetime import datetime, timedelta
 class Stocks(_BaseClient):
     """Client for FMP Stock API endpoints."""
 
-    def __init__(self, api_key: str|None, timeout: int = 10, output_format: str = 'json'):
-        super().__init__(api_key, timeout, output_format)
+    def __init__(self, api_key: str|None, timeout: int = 10):
+        super().__init__(api_key, timeout)
 
-    def historical_price_full(self, symbol: str, series_type: str | None = None, start: str | None = None, end: str | None = None, period: int | None = None):
+    def historical_price_full(self, symbol: str, series_type: str | None = None, start: str | None = None, end: str | None = None, period: int | None = None) -> pd.DataFrame:
         """
         Get full historical daily prices for a given symbol.
 
@@ -20,7 +20,7 @@ class Stocks(_BaseClient):
             period (int, optional): Number of years to retrieve data for, ending today. Takes precedence over `start` if both are provided.
 
         Returns:
-            list or pandas.DataFrame: Historical price data.
+            pd.DataFrame: Historical price data as a DataFrame.
         """
         endpoint = f"historical-price-full/{symbol}"
         params = {}
@@ -57,10 +57,15 @@ class Stocks(_BaseClient):
             # Calculate pct_chg
             if 'close' in df.columns:
                 df['pct_chg'] = df['close'].pct_change()
+            
+            df = df.round(2)
+        else:
+            # If df is not a DataFrame or is empty, return an empty DataFrame to satisfy the type hint
+            df = pd.DataFrame()
 
         return df
 
-    def daily_prices(self, symbol: str, start: str | None = None, end: str | None = None, period: int | None = None):
+    def daily_prices(self, symbol: str, start: str | None = None, end: str | None = None, period: int | None = None) -> pd.DataFrame:
         """
         Get historical daily prices for a given symbol (line series).
 
@@ -71,7 +76,7 @@ class Stocks(_BaseClient):
             period (int, optional): Number of years to retrieve data for, ending today. Takes precedence over `start` if both are provided.
 
         Returns:
-            list or pandas.DataFrame: Daily price data.
+            pd.DataFrame: Daily price data as a DataFrame.
         """
         return self.historical_price_full(symbol, series_type='line', start=start, end=end, period=period)
 

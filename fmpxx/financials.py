@@ -2,15 +2,15 @@ from .base import _BaseClient
 from .stocks import Stocks
 import pandas as pd
 import logging
-
+from fmpxx.utils import round_raw_data
 
 logger = logging.getLogger(__name__)
 
 class Financials(_BaseClient):
     """Client for FMP Company Fundamentals API endpoints."""
 
-    def __init__(self, api_key: str|None, timeout: int = 10, output_format: str = 'json', debug: bool = False):
-        super().__init__(api_key, timeout, output_format)
+    def __init__(self, api_key: str|None, timeout: int = 10, debug: bool = False):
+        super().__init__(api_key, timeout)
         self.debug = debug
         if debug and not logger.handlers:
             logger.setLevel(logging.DEBUG)
@@ -136,7 +136,7 @@ class Financials(_BaseClient):
             .fillna(value=0)
         )
 
-    def get_stock_performance(self, symbol: str, limit: int = 8, period: str = 'quarter') -> pd.DataFrame | None:
+    def get_stock_performance(self, symbol: str, limit: int = 12, period: str = 'quarter') -> pd.DataFrame | None:
         """
         Get comprehensive stock performance metrics using actual available financial data columns.
         
@@ -164,21 +164,21 @@ class Financials(_BaseClient):
         performance_df['freeCashFlowMargin'] = performance_df['freeCashFlow'] / performance_df['revenue']
         performance_df['debtToAssetRatio'] = performance_df['totalDebt'] / performance_df['totalAssets']
         
-        # Calculate year-over-year growth rates (matched by year and quarter)
+        # Calculate year-over-year growth rates (annual YoY comparison)
         performance_df['period_date'] = pd.to_datetime(performance_df['period_date'])
         performance_df['year'] = performance_df['period_date'].dt.year
         performance_df['quarter'] = performance_df['period_date'].dt.quarter
         
-        # Sort by stock symbol, year, quarter to ensure correct order
-        performance_df = performance_df.sort_values(by=['symbol', 'year', 'quarter'])
+        # Sort by date to ensure chronological order for YoY calculation
+        performance_df = performance_df.sort_values('period_date')
         
-        # Calculate year-over-year growth rates (matching same quarter, different year)
-        performance_df['revenue_growth_rate'] = performance_df.groupby(['symbol', 'quarter'])['revenue'].pct_change()
-        performance_df['operatingIncome_growth_rate'] = performance_df.groupby(['symbol', 'quarter'])['operatingIncome'].pct_change()
-        performance_df['eps_diluted_growth_rate'] = performance_df.groupby(['symbol', 'quarter'])['epsdiluted'].pct_change()
+        # Calculate year-over-year growth rates (annual YoY - periods=4 quarters = 1 year)
+        performance_df['revenue_growth_rate'] = performance_df['revenue'].pct_change(periods=4)
+        performance_df['operatingIncome_growth_rate'] = performance_df['operatingIncome'].pct_change(periods=4)
+        performance_df['eps_diluted_growth_rate'] = performance_df['epsdiluted'].pct_change(periods=4)
         
-        # Sort by date (latest first)
-        performance_df = performance_df.sort_values('date', ascending=False)
+        # Sort by date (oldest first)
+        # performance_df = performance_df.sort_values('period_date', ascending=True)
         
         # Select final required columns
         result_df = performance_df[[
@@ -196,7 +196,7 @@ class Financials(_BaseClient):
         ]].copy()
         
         # Data cleaning
-        return result_df.fillna(0)
+        return result_df.fillna(value=0).round(2)
 
     def get_earnings_his(self, symbol: str, period: int = 3) -> pd.DataFrame:
         """
@@ -265,7 +265,7 @@ class Financials(_BaseClient):
         eps_df['eps_ttm'] = eps_df['eps'].rolling(4).sum()
 
         # 获取历史价格数据
-        stocks_client = Stocks(self.api_key, self.timeout, self.output_format)
+        stocks_client = Stocks(self.api_key, self.timeout)
         his_df = stocks_client.historical_price_full(symbol, period=period)
         his_df = self._ensure_dataframe(his_df)
         
@@ -288,8 +288,8 @@ class Financials(_BaseClient):
             logger.info(f"Merged data shape: {merged_df.shape}")
         
         # 填充数据
-        merged_df['eps_ttm'] = merged_df['eps_ttm'].bfill().ffill()
-        merged_df['forward'] = merged_df['forward'].bfill()
+        merged_df['eps_ttm'] = merged_df['eps_ttm'].backfill().forward_fill()
+        merged_df['forward'] = merged_df['forward'].backfill()
         merged_df = merged_df.round(2)
         
         # 计算市盈率(PE)
@@ -319,7 +319,7 @@ class Financials(_BaseClient):
             pd.DataFrame: 包含财报发布后收盘价变动的DataFrame
         """
         # 获取历史价格数据
-        stocks_client = Stocks(self.api_key, self.timeout, self.output_format)
+        stocks_client = Stocks(self.api_key, self.timeout)
         his_df = stocks_client.historical_price_full(symbol, period=period)
         his_df = self._ensure_dataframe(his_df)
         
@@ -349,7 +349,7 @@ class Financials(_BaseClient):
             logger.info(f"Merged data:\n{merged_df.head()}")
         
         # 可能会有周五盘后发布财报的情况，比如clsk，使用前值填充
-        merged_df['close'] = merged_df['close'].ffill()
+        merged_df['close'] = merged_df['close'].forward_fill()
         
         if enable_logging:
             logger.info(f"After ffill:\n{merged_df.head()}")
@@ -369,7 +369,7 @@ class Financials(_BaseClient):
         
         # 只保留 is_fiscal 为 True 且不为 NA 的行
         if 'is_fiscal' in merged_df.columns:
-            merged_df = merged_df[merged_df['is_fiscal'].notnull() & merged_df['is_fiscal']]
+            merged_df = merged_df[merged_df['is_fiscal'].notna() & merged_df['is_fiscal']]
         else:
             logger.warning("is_fiscal column not found")
             return pd.DataFrame()
@@ -434,7 +434,7 @@ class Financials(_BaseClient):
             data: List of dictionaries with date as key and segment data as value
             
         Returns:
-            pd.DataFrame: DataFrame with date as index and segments as columns
+            pd.DataFrame: DataFrame with period_date as index and segments as columns
         """
         if not data:
             return pd.DataFrame()
@@ -447,11 +447,11 @@ class Financials(_BaseClient):
         rows = []
         for item in data:
             for date_str, segments in item.items():
-                row = {'date': date_str}
+                row = {'period_date': date_str}
                 row.update(segments)
                 rows.append(row)
         
         df = pd.DataFrame(rows)
-        df['date'] = pd.to_datetime(df['date'])
+        df['period_date'] = pd.to_datetime(df['period_date'])
         
-        return df.sort_values('date', ascending=False).reset_index(drop=True)
+        return df.sort_values('period_date', ascending=True).reset_index(drop=True)

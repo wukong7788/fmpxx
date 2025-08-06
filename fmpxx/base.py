@@ -5,12 +5,11 @@ from .exceptions import FMPAPIError, InvalidAPIKeyError, SymbolNotFoundError, Ra
 class _BaseClient:
     BASE_URL = "https://financialmodelingprep.com/api/v3/"
 
-    def __init__(self, api_key: str|None, timeout: int = 10, output_format: str = 'json'):
+    def __init__(self, api_key: str|None, timeout: int = 10):
         if not api_key:
             raise ValueError("API key is required.")
         self.api_key = api_key
         self.timeout = timeout
-        self.output_format = output_format
         self.session = requests.Session()
         self.session.params = {'apikey': self.api_key}
 
@@ -45,7 +44,7 @@ class _BaseClient:
         return data
 
     def _process_response(self, data) -> list | pd.DataFrame:
-        if self.output_format == 'pandas' and isinstance(data, list):
+        if isinstance(data, list):
             if not data:
                 return pd.DataFrame() # Return empty DataFrame for empty list
             try:
@@ -71,3 +70,27 @@ class _BaseClient:
             df[date_col] = pd.to_datetime(df[date_col])
             df[date_col] = df[date_col].dt.strftime('%Y-%m-%d')
         return df
+
+    def convert_to_json(self, data: pd.DataFrame | list[dict]) -> list[dict]:
+        """
+        Convert DataFrame or list to JSON format.
+        
+        Args:
+            data: pandas DataFrame or list of dictionaries to convert
+            
+        Returns:
+            list[dict]: JSON-compatible list of dictionaries
+        """
+        if isinstance(data, pd.DataFrame):
+            # Convert datetime columns to string for JSON serialization
+            df = data.copy()
+            for col in df.columns:
+                if pd.api.types.is_datetime64_any_dtype(df[col]):
+                    df[col] = df[col].astype(str)
+            return df.to_dict('records')
+        elif isinstance(data, list):
+            # Already in JSON-compatible format
+            return data
+        else:
+            # Handle other types
+            return []
